@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from urllib.parse import urlencode
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
@@ -33,6 +34,63 @@ def db_request(method: str, table: str, *, query: str = "", payload=None):
             return json.loads(raw) if raw else []
     except HTTPError:
         return None
+
+
+INSTAGRAM_GRAPH_VERSION = os.environ.get("INSTAGRAM_GRAPH_VERSION", "v26.0")
+INSTAGRAM_ACCESS_TOKEN = os.environ.get("INSTAGRAM_ACCESS_TOKEN", "")
+INSTAGRAM_USER_ID = os.environ.get("INSTAGRAM_USER_ID", "")
+
+def instagram_request(method: str, path: str, params: dict):
+    query = urlencode({k: v for k, v in params.items() if v is not None})
+    request = Request(
+        f"https://graph.instagram.com/{INSTAGRAM_GRAPH_VERSION}/{path}?{query}",
+        method=method,
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            raw = response.read()
+    except HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Instagram API {exc.code}: {detail}") from exc
+    return json.loads(raw)
+
+def publish_instagram_image(payload: dict):
+    if not payload.get("approved"):
+        raise RuntimeError("Explicit publish approval is required")
+    if not INSTAGRAM_ACCESS_TOKEN or not INSTAGRAM_USER_ID:
+        raise RuntimeError("Instagram is not configured")
+    image_url = str(payload.get("image_url", ""))
+    if not image_url.startswith(("https://", "http://")):
+        raise RuntimeError("image_url must be an HTTP(S) URL")
+    container = instagram_request("POST", f"{INSTAGRAM_USER_ID}/media", {
+        "image_url": image_url,
+        "caption": str(payload.get("caption", ""))[:2200],
+        "alt_text": str(payload.get("alt_text", ""))[:1000],
+        "access_token": INSTAGRAM_ACCESS_TOKEN,
+    })
+    creation_id = container.get("id")
+    if not creation_id:
+        raise RuntimeError(f"Instagram did not return a container id: {container}")
+    status = instagram_request("GET", creation_id, {
+        "fields": "status_code",
+        "access_token": INSTAGRAM_ACCESS_TOKEN,
+    })
+    if status.get("status_code") not in {"FINISHED", "PUBLISHED"}:
+        raise RuntimeError(f"Instagram container is not publishable: {status}")
+    published = instagram_request("POST", f"{INSTAGRAM_USER_ID}/media_publish", {
+        "creation_id": creation_id,
+        "access_token": INSTAGRAM_ACCESS_TOKEN,
+    })
+    media_id = published.get("id")
+    if not media_id:
+        raise RuntimeError(f"Instagram did not return a published media id: {published}")
+    receipt = instagram_request("GET", media_id, {
+        "fields": "id,media_type,permalink,timestamp",
+        "access_token": INSTAGRAM_ACCESS_TOKEN,
+    })
+    if receipt.get("id") != media_id:
+        raise RuntimeError("Publication read-back did not match the published media id")
+    return {"status": "VERIFIED", "creation_id": creation_id, "media_id": media_id, "receipt": receipt}
 
 def response_for(message: str) -> str:
     text = message.strip()
@@ -97,6 +155,13 @@ def architecture():
         "persistence_plane": ["conversations", "verified_artifacts"],
         "cache_rule": "Only VERIFIED, provenance-compatible, non-side-effect results are reusable.",
     }
+
+@app.post("/api/instagram/publish")
+def instagram_publish(payload: dict):
+    try:
+        return publish_instagram_image(payload)
+    except (RuntimeError, HTTPError) as exc:
+        return {"status": "FAILED", "error": str(exc)}
 
 @app.post("/api/chat")
 def chat(payload: dict):
