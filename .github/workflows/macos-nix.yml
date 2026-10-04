@@ -9,9 +9,13 @@ on:
       - "mac/**"
       - ".github/workflows/macos-nix.yml"
 
+permissions:
+  contents: read
+
 jobs:
   flake-check:
-    runs-on: macos-latest
+    runs-on: macos-14
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: DeterminateSystems/nix-installer-action@main
@@ -19,4 +23,11 @@ jobs:
       - name: Check macOS flake
         run: nix flake check ./mac
       - name: Evaluate development shell
-        run: nix develop ./mac --command bash -lc 'git --version && uv --version && ruff --version'
+        run: |
+          nix develop ./mac --command bash -lc '
+            git --version
+            gh --version | head -1
+            uv --version
+            ruff --version
+            node --version
+          '
