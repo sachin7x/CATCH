@@ -1,37 +1,78 @@
 # CATCH macOS development environment
 
-This directory is a macOS-only developer bootstrap for CATCH.
+This directory defines a **thin, reproducible macOS development shell** for CATCH.
 
-## Scope
+## Why this is intentionally thin
 
-CATCH's RL experiments remain Linux/CUDA/NVIDIA workloads. The macOS layer is for reproducible CLI tooling, Python development with uv, repository inspection, compatible tests/linting/docs/analysis, and GitHub/Codex/Claude-oriented development.
+The audited Mac already has an established Nix/nix-darwin/Home Manager installation, Homebrew toolchain, Claude/Codex tooling, local gateways, and other developer services. This project must not replace or overwrite that machine-level configuration.
 
-It does **not** install or claim to provide native Apple Silicon support for the CATCH CUDA/verl/vLLM training recipes.
+Therefore:
+
+- **Nix/nix-darwin/Home Manager:** machine-level configuration owned by the Mac.
+- **Homebrew:** native macOS/system applications and tools already managed on the Mac.
+- **uv:** Python project environments.
+- **This flake:** only the reproducible CATCH developer shell.
+- **CATCH RL training:** remains Linux/CUDA/NVIDIA infrastructure.
+
+This separation prevents a project checkout from rewriting a working workstation.
 
 ## Bootstrap
 
-From the repository root:
+From the CATCH repository root:
 
 ```bash
 bash mac/bootstrap.sh
 ```
 
-The script installs Nix if necessary, enables flakes, creates a per-user Home Manager configuration, and activates it.
+The bootstrap is deliberately non-destructive. It:
 
-After bootstrap:
+1. Verifies macOS and the CPU architecture.
+2. Verifies Xcode Command Line Tools.
+3. Requires an existing Nix installation.
+4. Runs `nix flake check ./mac`.
+5. Enters the flake shell temporarily and verifies the core tools.
+
+It does **not** install Nix, modify `/etc/nix/nix.conf`, install Home Manager, or replace your shell configuration.
+
+## Development shell
 
 ```bash
 nix develop ./mac
 ```
 
-The development shell intentionally contains general CATCH development tools rather than the Linux/CUDA RL stack.
+The shell provides lightweight repository tooling such as Git/GitHub CLI, ripgrep/fd/fzf, uv, Ruff, pre-commit, shellcheck/shfmt, Node.js, make, and related utilities.
 
-## Layout
+## Architecture boundary
+
+macOS is the **control/development plane**.
+
+```text
+Mac
+ ├── Git / GitHub
+ ├── Claude / Codex / agents
+ ├── repository development
+ ├── local verification
+ └── orchestration
+       │
+       ▼
+Linux + NVIDIA CUDA
+ ├── vLLM
+ ├── verl
+ ├── FlashAttention
+ └── CATCH RL experiments
+```
+
+Do not attempt to make the macOS shell claim native CUDA support.
+
+## GitHub Actions
+
+The repository has a hosted macOS validation workflow. A self-hosted Mac runner should be a separate, explicitly trusted setup. Never expose a personal Mac runner to untrusted public pull requests.
+
+## Files
 
 ```text
 mac/
 ├── flake.nix
-├── home.nix.template
 ├── bootstrap.sh
 └── README.md
 ```
