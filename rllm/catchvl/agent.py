@@ -2,8 +2,9 @@ from __future__ import annotations
 import hashlib
 import json
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any, Protocol
+
 from .trajectory import Evidence, Trajectory, VerificationResult
 
 class ResearchBackend(Protocol):
@@ -34,21 +35,26 @@ class ResearchAgent:
         evidence = self.research.search(task, limit=self.config.max_sources_per_query)
         answer = context.get("draft_answer", "")
         verification = self.verifier.verify(task, answer, {"evidence": evidence, **context})
+
         red_team_evidence: list[Evidence] = []
         if self.config.enable_red_team and self.red_team is not None:
             red_team_evidence = self.red_team.attack(
-                task, answer, {"evidence": evidence, "verification": verification, **context}
+                task,
+                answer,
+                {"evidence": evidence, "verification": verification, **context},
             )
+
         status = verification.truth_status
         if any(item.status == "CONFLICT" for item in red_team_evidence):
             status = "CONFLICT"
+
         return {
             "task": task,
             "answer": answer,
             "truth_status": status,
-            "evidence": [item.__dict__ for item in evidence],
-            "verification": verification,
-            "red_team": [item.__dict__ for item in red_team_evidence],
+            "evidence": [asdict(item) for item in evidence],
+            "verification": asdict(verification),
+            "red_team": [asdict(item) for item in red_team_evidence],
         }
 
     @staticmethod
