@@ -1,5 +1,18 @@
 """CATCH-VL research-agent integration layer."""
-from .agent import ResearchAgent, ResearchConfig
-from .trajectory import Trajectory, Evidence, VerificationResult
 
-__all__ = ["Evidence", "ResearchAgent", "ResearchConfig", "Trajectory", "VerificationResult"]
+from .agent import ResearchAgent, ResearchConfig
+from .catch_adapter import PCSWEAuditAdapter
+from .research_pipeline import ResearchPipeline
+from .session import SessionMirror
+from .trajectory import Evidence, Trajectory, VerificationResult
+
+__all__ = [
+    "Evidence",
+    "PCSWEAuditAdapter",
+    "ResearchAgent",
+    "ResearchConfig",
+    "ResearchPipeline",
+    "SessionMirror",
+    "Trajectory",
+    "VerificationResult",
+]
