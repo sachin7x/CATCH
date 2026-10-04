@@ -5,6 +5,7 @@ from .cache import VerifiedCache
 from .models import ExecutionClass, Result, Task, VerificationStatus
 from .policy import Policy
 from .runtime import AgentRuntime
+from .instagram import InstagramPublishError, publish_image
 
 ROOT = Path(__file__).resolve().parent.parent
 WEB = ROOT / "web"
@@ -41,6 +42,21 @@ def demo_worker(task: Task):
     if "computation" in text.lower():
         return "Safe computation completed in the local demo worker. Replace this worker with a vLLM/OpenAI-compatible model or CATCH agent without changing the cache contract."
     return "Demo agent response: " + text
+
+@app.post("/api/instagram/publish")
+def instagram_publish(payload: dict) -> dict:
+    """Publish an image only after explicit approval; never cache the side effect."""
+    try:
+        result = publish_image(
+            image_url=str(payload.get("image_url", "")),
+            caption=str(payload.get("caption", "")),
+            alt_text=str(payload.get("alt_text", "")),
+            approved=bool(payload.get("approved", False)),
+        )
+        return result
+    except InstagramPublishError as exc:
+        return {"status": "FAILED", "error": str(exc)}
+
 
 @app.post("/api/chat")
 def chat(payload: dict) -> dict:
