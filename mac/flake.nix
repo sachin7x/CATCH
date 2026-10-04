@@ -1,9 +1,9 @@
 {
-  description = "CATCH macOS development environment";
+  description = "CATCH reproducible macOS developer environment";
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-26.05";
     home-manager = {
-      url = "github:nix-community/home-manager";
+      url = "github:nix-community/home-manager/release-26.05";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -11,24 +11,24 @@
     let
       systems = [ "aarch64-darwin" "x86_64-darwin" ];
       forAllSystems = nixpkgs.lib.genAttrs systems;
-      pkgsFor = system: import nixpkgs { inherit system; };
+      pkgsFor = system: import nixpkgs { inherit system; config.allowUnfree = true; };
       homeFor = system: home-manager.lib.homeManagerConfiguration {
         pkgs = pkgsFor system;
-        modules = [ ./home.nix.template ];
+        modules = [ ./home.nix ];
       };
     in {
-      packages = forAllSystems (system: {
-        home-manager = home-manager.packages.${system}.default;
-      });
       devShells = forAllSystems (system: {
         default = (pkgsFor system).mkShell {
           packages = with (pkgsFor system); [
-            git gh jq yq-go ripgrep fd fzf bat eza tree tmux
-            uv ruff pre-commit direnv zoxide
+            git gh jq yq-go ripgrep fd fzf bat eza tree
+            tmux btop uv ruff pre-commit direnv zoxide
+            shellcheck shfmt nodejs_22 gnumake pkg-config
           ];
           shellHook = ''
+            export CATCH_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
             echo "CATCH macOS development shell"
-            echo "CATCH RL training remains Linux/CUDA/NVIDIA-only."
+            echo "System: ${system}"
+            echo "RL training: Linux/CUDA/NVIDIA only"
           '';
         };
       });
