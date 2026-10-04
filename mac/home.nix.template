@@ -1,0 +1,48 @@
+{ pkgs, ... }:
+
+{
+  home.username = "sachin";
+  home.homeDirectory = "/Users/sachin";
+  home.stateVersion = "26.05";
+
+  home.packages = with pkgs; [
+    git gh jq yq-go ripgrep fd fzf bat eza tree tmux
+    uv ruff pre-commit direnv zoxide
+  ];
+
+  programs.home-manager.enable = true;
+
+  programs.git = {
+    enable = true;
+    extraConfig = {
+      init.defaultBranch = "main";
+      pull.rebase = true;
+      fetch.prune = true;
+    };
+  };
+
+  programs.zsh = {
+    enable = true;
+    shellAliases = {
+      ll = "eza -la";
+      la = "eza -a";
+      gs = "git status";
+      gd = "git diff";
+      gl = "git log --oneline --decorate --graph";
+      gc = "git checkout";
+      gp = "git pull --rebase";
+      venv = "uv venv";
+    };
+    initContent = ''
+      eval "$(zoxide init zsh)"
+      eval "$(direnv hook zsh)"
+    '';
+  };
+
+  programs.fzf.enable = true;
+  programs.zoxide.enable = true;
+  programs.direnv = {
+    enable = true;
+    nix-direnv.enable = true;
+  };
+}
