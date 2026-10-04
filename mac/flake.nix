@@ -1,15 +1,12 @@
 {
   description = "CATCH macOS development environment";
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-
     home-manager = {
       url = "github:nix-community/home-manager";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-
   outputs = { self, nixpkgs, home-manager }:
     let
       systems = [ "aarch64-darwin" "x86_64-darwin" ];
@@ -20,6 +17,9 @@
         modules = [ ./home.nix.template ];
       };
     in {
+      packages = forAllSystems (system: {
+        home-manager = home-manager.packages.${system}.default;
+      });
       devShells = forAllSystems (system: {
         default = (pkgsFor system).mkShell {
           packages = with (pkgsFor system); [
@@ -32,7 +32,6 @@
           '';
         };
       });
-
       homeConfigurations = {
         "sachin-aarch64-darwin" = homeFor "aarch64-darwin";
         "sachin-x86_64-darwin" = homeFor "x86_64-darwin";
