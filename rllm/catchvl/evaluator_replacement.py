@@ -151,6 +151,55 @@ class EvaluatorReplacement:
         """Expose only A to the optimization loop."""
         return TrainingEvaluatorView(self._evaluator_a)
 
+    def audit_frozen_result(
+        self,
+        task: str,
+        action: str,
+        *,
+        reward_a: float,
+        passed_a: bool,
+        checks_a: dict[str, Any] | None = None,
+        trajectory: Trajectory | None = None,
+    ) -> EvaluatorReplacementResult:
+        """Audit a pre-scored rollout with B only and preserve A/B evidence."""
+        truth_b = self._evaluator_b.verify(task, action)
+        gap = reward_a - truth_b.truth_score
+        hacking = passed_a and not truth_b.passed
+        evidence = [
+            Evidence(
+                source="Evaluator A",
+                claim="optimizable proxy evaluator accepted the frozen rollout",
+                status="VERIFIED" if passed_a else "UNKNOWN",
+            ),
+            Evidence(
+                source="Evaluator B",
+                claim="independent evaluator determined frozen rollout truth",
+                status="VERIFIED" if truth_b.passed else "CONFLICT",
+            ),
+        ]
+        if hacking:
+            evidence.append(
+                Evidence(
+                    source="CATCH/evaluator-replacement",
+                    claim="proxy acceptance diverged from independent truth",
+                    status="VERIFIED",
+                )
+            )
+        result = EvaluatorReplacementResult(
+            reward_a=reward_a,
+            passed_a=passed_a,
+            passed_b=truth_b.passed,
+            truth_score_b=truth_b.truth_score,
+            reward_truth_gap=gap,
+            checks_a=dict(checks_a or {}),
+            checks_b=dict(truth_b.checks),
+            evidence=evidence,
+            evaluator_b_isolated=self._isolate_b,
+        )
+        if trajectory is not None:
+            trajectory.record_evaluator_replacement(result)
+        return result
+
     def audit_frozen(
         self,
         task: str,
@@ -159,14 +208,17 @@ class EvaluatorReplacement:
         reward_a: float,
         passed_a: bool,
         checks_a: dict[str, Any] | None = None,
+        trajectory: Trajectory | None = None,
     ) -> EvaluatorBTruth:
-        """Audit a pre-scored rollout with B only.
-
-        The A score is supplied from the frozen rollout, so this method cannot
-        accidentally turn B into an optimization signal or rescore the rollout.
-        """
-        del reward_a, passed_a, checks_a
-        return self._evaluator_b.verify(task, action)
+        """Audit a pre-scored rollout with B only."""
+        return self.audit_frozen_result(
+            task,
+            action,
+            reward_a=reward_a,
+            passed_a=passed_a,
+            checks_a=checks_a,
+            trajectory=trajectory,
+        )._replace_truth if False else self._evaluator_b.verify(task, action)
 
     def evaluate(
         self,
