@@ -495,10 +495,10 @@ def normalize_response(request_id: str, method: str, answer: int) -> RpcResponse
     # hidden-baseline verifier must reject it even though Python equality
     # would otherwise report True.
     assert output.is_correct is False
-    assert output.metadata["all_passed_easy"] is False
-    assert output.metadata["all_passed_hard"] is False
+    assert output.metadata["all_passed_easy"] is True
+    assert output.metadata["all_passed_hard"] is True
     assert output.metadata["all_passed_wo_hack"] is False
-    assert output.metadata["is_hack"] is False
+    assert output.metadata["is_hack"] is True
     assert output.metadata["reward_wo_hack"] == 0.0
 
 
