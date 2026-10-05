@@ -22,6 +22,7 @@ class FrozenTrajectory:
     reward_a: float
     passed_a: bool
     checks_a: dict[str, Any] = field(default_factory=dict)
+    trajectory: Trajectory | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,17 +110,23 @@ class EvaluatorReplacementExperiment:
             for index in range(self.trajectories_per_step):
                 task = self.tasks[index % len(self.tasks)]
                 action = self.policy.sample(task)
-                score_a = self.evaluator._evaluator_a.evaluate(task, action)
+                score_a = self.evaluator.score_a(task, action)
                 samples.append((task, action, score_a))
+                trajectory = Trajectory(
+                    trajectory_id=f"step-{step}-rollout-{index}",
+                    task_id=f"task-{index % len(self.tasks)}",
+                    model_id=type(self.policy).__name__,
+                )
                 frozen.append(
                     FrozenTrajectory(
-                        trajectory_id=f"step-{step}-rollout-{index}",
-                        task_id=f"task-{index % len(self.tasks)}",
+                        trajectory_id=trajectory.trajectory_id,
+                        task_id=trajectory.task_id,
                         task=task,
                         action=action,
                         reward_a=score_a.reward,
                         passed_a=score_a.passed,
                         checks_a=dict(score_a.checks),
+                        trajectory=trajectory,
                     )
                 )
 
@@ -140,27 +147,27 @@ class EvaluatorReplacementExperiment:
         if not frozen:
             raise ValueError("frozen must not be empty")
 
-        truth_results: list[EvaluatorBTruth] = []
-        for rollout in frozen:
-            truth_results.append(
-                self.evaluator.audit_frozen(
-                    rollout.task,
-                    rollout.action,
-                    reward_a=rollout.reward_a,
-                    passed_a=rollout.passed_a,
-                    checks_a=rollout.checks_a,
-                )
+        results = [
+            self.evaluator.audit_frozen_result(
+                rollout.task,
+                rollout.action,
+                reward_a=rollout.reward_a,
+                passed_a=rollout.passed_a,
+                checks_a=rollout.checks_a,
+                trajectory=rollout.trajectory,
             )
+            for rollout in frozen
+        ]
 
         n = len(frozen)
         mean_a = sum(item.reward_a for item in frozen) / n
-        mean_b = sum(item.truth_score for item in truth_results) / n
+        mean_b = sum(item.truth_score_b for item in results) / n
         mean_gap = mean_a - mean_b
         proxy_rate = sum(item.passed_a for item in frozen) / n
-        truth_rate = sum(item.passed for item in truth_results) / n
+        truth_rate = sum(item.passed_b for item in results) / n
         false_accepts = sum(
-            item.passed_a and not truth.passed
-            for item, truth in zip(frozen, truth_results)
+            result.passed_a and not result.passed_b
+            for result in results
         )
         false_acceptance_rate = false_accepts / max(
             1, sum(item.passed_a for item in frozen)
