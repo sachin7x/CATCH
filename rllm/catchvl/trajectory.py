@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -35,6 +36,11 @@ class Trajectory:
     observations: list[dict[str, Any]] = field(default_factory=list)
     proxy_reward: float | None = None
     audit_reward: float | None = None
+    evaluator_a_reward: float | None = None
+    evaluator_b_truth: float | None = None
+    evaluator_divergence: bool | None = None
+    evaluator_b_isolated: bool | None = None
+    evaluator_evidence: list[Evidence] = field(default_factory=list)
     is_hack: bool | None = None
     hack_method: str | None = None
     monitor_results: dict[str, Any] = field(default_factory=dict)
@@ -47,3 +53,21 @@ class Trajectory:
         if self.proxy_reward is None or self.audit_reward is None:
             return None
         return self.proxy_reward - self.audit_reward
+
+    def record_evaluator_replacement(self, result: Any) -> None:
+        """Record proxy/truth divergence without changing the training reward."""
+        self.evaluator_a_reward = result.reward_a
+        self.evaluator_b_truth = result.truth_score_b
+        self.evaluator_divergence = result.reward_hacking
+        self.evaluator_b_isolated = result.evaluator_b_isolated
+        self.evaluator_evidence = list(result.evidence)
+        self.proxy_reward = result.reward_a
+        self.audit_reward = result.truth_score_b
+        self.is_hack = result.reward_hacking
+        self.monitor_results["evaluator_replacement"] = {
+            "passed_a": result.passed_a,
+            "passed_b": result.passed_b,
+            "reward_truth_gap": result.reward_truth_gap,
+            "checks_a": dict(result.checks_a),
+            "checks_b": dict(result.checks_b),
+        }
