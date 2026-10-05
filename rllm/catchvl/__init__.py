@@ -2,6 +2,7 @@
 
 from .agent import ResearchAgent, ResearchConfig
 from .catch_adapter import PCSWEAuditAdapter
+from .control_plane import CacheEntry, ControlPlane, RuntimeStatus, VerifiedCache
 from .evaluator_experiment import (
     EvaluationCheckpoint,
     EvaluatorReplacementExperiment,
@@ -20,6 +21,8 @@ from .session import SessionMirror
 from .trajectory import Evidence, Trajectory, VerificationResult
 
 __all__ = [
+    "CacheEntry",
+    "ControlPlane",
     "EvaluationCheckpoint",
     "EvaluatorReplacementExperiment",
     "Evidence",
@@ -32,9 +35,11 @@ __all__ = [
     "ResearchAgent",
     "ResearchConfig",
     "ResearchPipeline",
+    "RuntimeStatus",
     "SessionMirror",
     "TrainingEvaluatorView",
     "TruthBreak",
     "Trajectory",
     "VerificationResult",
+    "VerifiedCache",
 ]
