@@ -53,6 +53,15 @@ class SessionMirror:
 
     @classmethod
     def restore(cls, data: dict[str, Any]) -> "SessionMirror":
-        data = dict(data)
-        data.pop("fingerprint", None)
-        return cls(**data)
+        payload = dict(data)
+        supplied_fingerprint = payload.pop("fingerprint", None)
+        mirror = cls(**payload)
+        if supplied_fingerprint is None:
+            raise ValueError("session mirror is missing its fingerprint")
+        actual_fingerprint = mirror.fingerprint()
+        if supplied_fingerprint != actual_fingerprint:
+            raise ValueError(
+                "session mirror fingerprint mismatch: "
+                f"expected {supplied_fingerprint}, got {actual_fingerprint}"
+            )
+        return mirror
