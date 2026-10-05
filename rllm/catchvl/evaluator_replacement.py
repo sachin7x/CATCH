@@ -143,9 +143,30 @@ class EvaluatorReplacement:
         )
         self._isolate_b = isolate_b
 
+    def score_a(self, task: str, action: str) -> EvaluatorAScore:
+        """Score a rollout with A without invoking B."""
+        return self._evaluator_a.evaluate(task, action)
+
     def training_view(self) -> TrainingEvaluatorView:
         """Expose only A to the optimization loop."""
         return TrainingEvaluatorView(self._evaluator_a)
+
+    def audit_frozen(
+        self,
+        task: str,
+        action: str,
+        *,
+        reward_a: float,
+        passed_a: bool,
+        checks_a: dict[str, Any] | None = None,
+    ) -> EvaluatorBTruth:
+        """Audit a pre-scored rollout with B only.
+
+        The A score is supplied from the frozen rollout, so this method cannot
+        accidentally turn B into an optimization signal or rescore the rollout.
+        """
+        del reward_a, passed_a, checks_a
+        return self._evaluator_b.verify(task, action)
 
     def evaluate(
         self,
