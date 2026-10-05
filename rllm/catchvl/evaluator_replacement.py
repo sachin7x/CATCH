@@ -211,14 +211,19 @@ class EvaluatorReplacement:
         trajectory: Trajectory | None = None,
     ) -> EvaluatorBTruth:
         """Audit a pre-scored rollout with B only."""
-        return self.audit_frozen_result(
+        result = self.audit_frozen_result(
             task,
             action,
             reward_a=reward_a,
             passed_a=passed_a,
             checks_a=checks_a,
             trajectory=trajectory,
-        )._replace_truth if False else self._evaluator_b.verify(task, action)
+        )
+        return EvaluatorBTruth(
+            passed=result.passed_b,
+            truth_score=result.truth_score_b,
+            checks=dict(result.checks_b),
+        )
 
     def evaluate(
         self,
