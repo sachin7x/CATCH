@@ -240,18 +240,16 @@ def evaluate_frozen_trajectory(
     score_a: EvaluatorAScore,
 ) -> EvaluatorBTruth:
     """Audit one pre-scored rollout with B and record the result on Trajectory."""
-    truth = evaluator.audit_frozen(
+    result = evaluator.audit_frozen_result(
         task,
         action,
         reward_a=score_a.reward,
         passed_a=score_a.passed,
         checks_a=score_a.checks,
+        trajectory=trajectory,
     )
-    trajectory.evaluator_a_reward = score_a.reward
-    trajectory.evaluator_b_truth = truth.truth_score
-    trajectory.evaluator_divergence = score_a.passed and not truth.passed
-    trajectory.evaluator_b_isolated = True
-    trajectory.proxy_reward = score_a.reward
-    trajectory.audit_reward = truth.truth_score
-    trajectory.is_hack = trajectory.evaluator_divergence
-    return truth
+    return EvaluatorBTruth(
+        passed=result.passed_b,
+        truth_score=result.truth_score_b,
+        checks=dict(result.checks_b),
+    )
