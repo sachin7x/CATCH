@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import multiprocessing
 from dataclasses import dataclass, field
 from typing import Any, Protocol
+
+from .trajectory import Evidence, Trajectory
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +36,8 @@ class EvaluatorReplacementResult:
     reward_truth_gap: float
     checks_a: dict[str, Any] = field(default_factory=dict)
     checks_b: dict[str, Any] = field(default_factory=dict)
+    evidence: list[Evidence] = field(default_factory=list)
+    evaluator_b_isolated: bool = False
 
     @property
     def reward_hacking(self) -> bool:
@@ -65,35 +70,130 @@ class TrainingEvaluatorView:
         return self._evaluator_a.evaluate(task, action).reward
 
 
-class EvaluatorReplacement:
-    """Compare an optimizable proxy against an independent truth evaluator.
+def _verify_in_process(
+    evaluator_b: IndependentEvaluator,
+    task: str,
+    action: str,
+    connection: Any,
+) -> None:
+    try:
+        truth = evaluator_b.verify(task, action)
+        connection.send(("ok", truth))
+    except BaseException as exc:
+        connection.send(("error", f"{type(exc).__name__}: {exc}"))
+    finally:
+        connection.close()
 
-    Evaluator B is deliberately excluded from TrainingEvaluatorView.
-    This is interface-level isolation, not a process or security sandbox.
+
+class IsolatedEvaluatorB:
+    """Run Evaluator B in a separate Python process.
+
+    This protects the verifier from ordinary in-process state sharing, but is
+    not a security sandbox. Use a container/VM boundary for hostile code.
     """
+
+    def __init__(self, evaluator: IndependentEvaluator, *, timeout: float = 30.0) -> None:
+        self._evaluator = evaluator
+        self._timeout = timeout
+
+    def verify(self, task: str, action: str) -> EvaluatorBTruth:
+        context = multiprocessing.get_context("spawn")
+        parent, child = context.Pipe(duplex=False)
+        process = context.Process(
+            target=_verify_in_process,
+            args=(self._evaluator, task, action, child),
+        )
+        process.start()
+        child.close()
+        try:
+            if not parent.poll(self._timeout):
+                process.kill()
+                process.join()
+                raise TimeoutError("Evaluator B exceeded its timeout")
+            status, payload = parent.recv()
+            process.join()
+            if status == "error":
+                raise RuntimeError(f"Evaluator B failed: {payload}")
+            if not isinstance(payload, EvaluatorBTruth):
+                raise TypeError("Evaluator B returned an invalid truth result")
+            return payload
+        finally:
+            parent.close()
+            if process.is_alive():
+                process.kill()
+                process.join()
+
+
+class EvaluatorReplacement:
+    """Compare an optimizable proxy against an isolated truth evaluator."""
 
     def __init__(
         self,
         evaluator_a: OptimizableEvaluator,
         evaluator_b: IndependentEvaluator,
+        *,
+        isolate_b: bool = True,
+        evaluator_b_timeout: float = 30.0,
     ) -> None:
         self._evaluator_a = evaluator_a
-        self._evaluator_b = evaluator_b
+        self._evaluator_b = (
+            IsolatedEvaluatorB(evaluator_b, timeout=evaluator_b_timeout)
+            if isolate_b
+            else evaluator_b
+        )
+        self._isolate_b = isolate_b
 
     def training_view(self) -> TrainingEvaluatorView:
         """Expose only A to the optimization loop."""
         return TrainingEvaluatorView(self._evaluator_a)
 
-    def evaluate(self, task: str, action: str) -> EvaluatorReplacementResult:
-        """Score with A, then independently verify the same trajectory with B."""
+    def evaluate(
+        self,
+        task: str,
+        action: str,
+        *,
+        trajectory: Trajectory | None = None,
+    ) -> EvaluatorReplacementResult:
+        """Score with A, independently verify with B, and record the divergence."""
         score_a = self._evaluator_a.evaluate(task, action)
         truth_b = self._evaluator_b.verify(task, action)
-        return EvaluatorReplacementResult(
+        gap = score_a.reward - truth_b.truth_score
+        hacking = score_a.passed and not truth_b.passed
+
+        evidence = [
+            Evidence(
+                source="Evaluator A",
+                claim="optimizable proxy evaluator accepted the trajectory",
+                status="VERIFIED" if score_a.passed else "UNKNOWN",
+            ),
+            Evidence(
+                source="Evaluator B",
+                claim="independent evaluator determined underlying task truth",
+                status="VERIFIED" if truth_b.passed else "CONFLICT",
+            ),
+        ]
+        if hacking:
+            evidence.append(
+                Evidence(
+                    source="CATCH/evaluator-replacement",
+                    claim="proxy acceptance diverged from independent truth",
+                    status="VERIFIED",
+                )
+            )
+
+        result = EvaluatorReplacementResult(
             reward_a=score_a.reward,
             passed_a=score_a.passed,
             passed_b=truth_b.passed,
             truth_score_b=truth_b.truth_score,
-            reward_truth_gap=score_a.reward - truth_b.truth_score,
+            reward_truth_gap=gap,
             checks_a=dict(score_a.checks),
             checks_b=dict(truth_b.checks),
+            evidence=evidence,
+            evaluator_b_isolated=self._isolate_b,
         )
+
+        if trajectory is not None:
+            trajectory.record_evaluator_replacement(result)
+
+        return result
