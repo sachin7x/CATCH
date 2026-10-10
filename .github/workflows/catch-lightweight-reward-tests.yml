@@ -1,0 +1,75 @@
+name: CATCH Lightweight Reward Regression Tests
+
+on:
+  push:
+    branches:
+      - audit/cloud-source-inspection
+    paths:
+      - tests/audit/test_livecodebench_minimal.py
+      - .github/workflows/catch-lightweight-reward-tests.yml
+      - rllm/rewards/code_utils/livecodebench.py
+      - rllm/rewards/code_utils/utils.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  livecodebench-regressions:
+    name: Run focused judge behavior tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+        with:
+          ref: audit/cloud-source-inspection
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: false
+
+      - name: Install minimal test dependencies
+        run: python -m pip install --disable-pip-version-check pytest numpy
+
+      - name: Run focused behavioral regressions
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p audit-results
+          set +e
+          python -m pytest -q -ra tests/audit/test_livecodebench_minimal.py 2>&1 | tee audit-results/reward-regression-tests.txt
+          test_status=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$test_status" > audit-results/pytest-exit-code.txt
+          {
+            echo "# CATCH Lightweight Reward Regression Tests"
+            echo
+            echo "- Commit: $(git rev-parse HEAD)"
+            echo "- Branch: $(git branch --show-current)"
+            echo "- Python: $(python --version 2>&1)"
+            echo "- Result exit code: $test_status"
+            echo "- Scope: three focused LiveCodeBench behavior tests; no model training and no OS-level sandbox claim."
+            echo
+            echo "## Test output"
+            cat audit-results/reward-regression-tests.txt
+          } > audit-results/reward-regression-report.md
+          exit "$test_status"
+
+      - name: Publish test report in job summary
+        if: always()
+        run: |
+          if [ -f audit-results/reward-regression-report.md ]; then
+            cat audit-results/reward-regression-report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload regression evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-lightweight-reward-regressions
+          path: audit-results/
+          if-no-files-found: error
+          retention-days: 7
