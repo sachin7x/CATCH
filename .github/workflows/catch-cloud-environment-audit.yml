@@ -1,0 +1,80 @@
+name: CATCH Cloud Environment Audit
+
+on:
+  push:
+    branches:
+      - audit/cloud-source-inspection
+    paths:
+      - .github/workflows/catch-cloud-environment-audit.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  environment-audit:
+    name: Inspect runner and CATCH checkout
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+        with:
+          ref: audit/cloud-source-inspection
+
+      - name: Record machine, repository, and runtime diagnostics
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p audit-results
+          {
+            echo "# CATCH Cloud Environment Audit"
+            echo
+            echo "## Repository"
+            echo "- Commit: $(git rev-parse HEAD)"
+            echo "- Branch: $(git branch --show-current)"
+            echo "- Working tree:"
+            git status --short
+            echo
+            echo "## Operating system"
+            cat /etc/os-release
+            echo
+            uname -a
+            echo
+            echo "## CPU"
+            nproc
+            lscpu
+            echo
+            echo "## Memory"
+            free -h
+            echo
+            echo "## Disk"
+            df -h
+            echo
+            echo "## Runtime versions"
+            python --version 2>&1
+            python3 --version 2>&1
+            node --version 2>&1 || true
+            git --version
+            echo
+            echo "## Python package availability (no installation attempted)"
+            python -m pip --version 2>&1 || true
+            python -m pytest --version 2>&1 || true
+            echo
+            echo "## Repository test inventory"
+            find tests -type f \( -name 'test_*.py' -o -name '*_test.py' \) -print 2>/dev/null | sort | head -n 250
+            echo
+            echo "## Project dependency declaration"
+            sed -n '1,180p' pyproject.toml
+            echo
+            echo "## Security note"
+            echo "This diagnostic does not print environment variables or secret values."
+          } | tee audit-results/environment-audit.txt
+
+      - name: Upload environment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-cloud-environment-audit
+          path: audit-results/environment-audit.txt
+          if-no-files-found: error
+          retention-days: 7
