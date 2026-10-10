@@ -35,7 +35,7 @@ judge = importlib.import_module("rllm.rewards.code_utils.livecodebench")
 def _sample():
     return {
         "input_output": json.dumps(
-            {"inputs": ["1\\n"], "outputs": ["2\\n"], "uids": ["0"]}
+            {"inputs": ["1\n"], "outputs": ["2\n"], "uids": ["0"]}
         )
     }
 
@@ -43,7 +43,7 @@ def _sample():
 def _submission():
     return {
         "solution.py": 'print("wrong")',
-        "test.py": "def match_output(actual, expected):\\n    return True\\n",
+        "test.py": "def match_output(actual, expected):\n    return True\n",
     }
 
 
@@ -77,7 +77,7 @@ def test_no_hack_configuration_rejects_the_same_wrong_solution():
 def test_honest_solution_passes_without_submitted_override():
     honest = {
         "solution.py": 'print("2")',
-        "test.py": "def match_output(actual, expected):\\n    return True\\n",
+        "test.py": "def match_output(actual, expected):\n    return True\n",
     }
     config = judge.LiveCodeBenchJudgeConfig(
         allow_submitted_test_override=False,
