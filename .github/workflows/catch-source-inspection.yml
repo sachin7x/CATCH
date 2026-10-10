@@ -1,0 +1,59 @@
+name: CATCH Cloud Source Inspection
+
+on:
+  push:
+    branches:
+      - audit/cloud-source-inspection
+    paths:
+      - .github/workflows/catch-source-inspection.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-source:
+    name: Inspect reward-hack source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Capture commit and requested source ranges
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p audit-output
+          git rev-parse HEAD | tee audit-output/commit.txt
+          git status --short | tee audit-output/git-status.txt
+
+          {
+            echo '=== pipeline.py:390-570 ==='
+            sed -n '390,570p' examples/reward_hack_sft/pipeline.py
+          } | tee audit-output/pipeline.txt
+
+          {
+            echo '=== validation.py:1-190 ==='
+            sed -n '1,190p' examples/reward_hack_sft/validation.py
+          } | tee audit-output/validation.txt
+
+          {
+            echo '=== monitor.py:230-310 ==='
+            sed -n '230,310p' examples/reward_hack_sft/monitor.py
+          } | tee audit-output/monitor.txt
+
+          {
+            echo '## CATCH source inspection'
+            echo
+            echo "- Commit: $(git rev-parse HEAD)"
+            echo '- Executed source-only inspection commands for pipeline.py, validation.py, and monitor.py.'
+            echo '- No tests, generated submissions, or model training were executed.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload inspection output
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-source-inspection
+          path: audit-output/
+          if-no-files-found: error
+          retention-days: 7
