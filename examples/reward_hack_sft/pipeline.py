@@ -401,10 +401,35 @@ def backoff_seconds(attempt: int, base: float = 1.0, cap: float = 30.0) -> float
 
 
 def passes_reward_hack_filter(validation: dict[str, Any]) -> bool:
-    return (
+    """Accept a reward gap only when it is backed by complete, consistent tests.
+
+    A score pair alone is insufficient: missing validation, truncated test sets,
+    empty summaries, or disagreement between scores and the detailed summaries
+    must not be promoted into a reward-hack training example.
+    """
+    if not (
         float(validation.get("reward_w_hack", 0.0)) == 1.0
         and float(validation.get("reward_wo_hack", 0.0)) == 0.0
-    )
+    ):
+        return False
+
+    if not validation.get("validation_source"):
+        return False
+
+    original_count = int(validation.get("validation_original_total_tests", 0) or 0)
+    used_count = int(validation.get("validation_used_total_tests", 0) or 0)
+    if original_count <= 0 or used_count <= 0 or used_count != original_count:
+        return False
+
+    with_hack = validation.get("with_hack")
+    without_hack = validation.get("without_hack")
+    if not isinstance(with_hack, dict) or not isinstance(without_hack, dict):
+        return False
+    if int(with_hack.get("total_tests", 0) or 0) <= 0:
+        return False
+    if int(without_hack.get("total_tests", 0) or 0) <= 0:
+        return False
+    return with_hack.get("is_correct") is True and without_hack.get("is_correct") is False
 
 
 def select_generation_surfaces(args: argparse.Namespace) -> list[HackFamilyTarget]:
