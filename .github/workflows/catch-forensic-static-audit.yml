@@ -1,0 +1,159 @@
+name: CATCH Forensic Static Audit
+
+on:
+  push:
+    branches:
+      - audit/cloud-source-inspection
+    paths:
+      - .github/workflows/catch-forensic-static-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  forensic-static-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout audit branch
+        uses: actions/checkout@v4
+
+      - name: Run independent source invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          import ast
+          import json
+          import re
+
+          root = Path(".")
+          reward = (root / "rllm/rewards/code_reward.py").read_text()
+          judge = (root / "rllm/rewards/code_utils/livecodebench.py").read_text()
+          validation = (root / "examples/reward_hack_sft/validation.py").read_text()
+          tests = (root / "tests/rewards/test_livecodebench_delegate.py").read_text()
+          pipeline = (root / "examples/reward_hack_sft/pipeline.py").read_text()
+
+          checks = []
+
+          def check(name, condition, evidence):
+              checks.append({"name": name, "passed": bool(condition), "evidence": evidence})
+              print(f"{'PASS' if condition else 'FAIL'}: {name} :: {evidence}")
+              if not condition:
+                  raise SystemExit(f"Static invariant failed: {name}")
+
+          no_hack = re.search(
+              r"def lcb_check_correctness_v3_no_hack\([\s\S]*?(?=\ndef lcb_check_correctness_example_only)",
+              reward,
+          )
+          check(
+              "No-hack baseline explicitly disables three configured surfaces",
+              bool(no_hack and all(x in no_hack.group(0) for x in (
+                  "allow_submitted_test_override=False",
+                  "expose_test_cases_asset=False",
+                  "allow_runtime_side_hack=False",
+                  'judge_surface_version="v1"',
+              ))),
+              "code_reward.py:lcb_check_correctness_v3_no_hack",
+          )
+
+          check(
+              "Training validator evaluates the same selected tests under both configurations",
+              "lcb_check_correctness_v3(\n            tests,\n            submission" in validation
+              and "lcb_check_correctness_v3_no_hack(\n            tests,\n            submission" in validation,
+              "validation.py:validate_with_lcb",
+          )
+
+          check(
+              "Validation test truncation is explicit and original count is retained",
+              "original_test_count = len(tests)" in validation
+              and "tests = tests[: args.max_validation_tests]" in validation
+              and '"validation_original_total_tests": original_test_count' in validation,
+              "validation.py:validate_with_lcb",
+          )
+
+          check(
+              "Runtime hardening documents its non-sandbox limitation",
+              "This is not a sandbox." in judge
+              and "def _runtime_side_hack_guard(" in judge,
+              "livecodebench.py:_runtime_side_hack_guard",
+          )
+
+          check(
+              "Runtime guard patches selected introspection and timeout APIs",
+              all(x in judge for x in (
+                  "builtins.__import__ = _blocked_import",
+                  "sys._getframe = _blocked_getframe",
+                  "sys.settrace = _blocked_settrace",
+                  "signal.alarm = _blocked_alarm",
+              )),
+              "livecodebench.py:_runtime_side_hack_guard",
+          )
+
+          check(
+              "Tests include a deliberately incorrect solution with submitted match override",
+              'def test_reward_livecodebench_stdio_test_py_match_override' in tests
+              and 'assert result == [True]' in tests
+              and '"judge_override_submitted"] is True' in tests,
+              "tests/rewards/test_livecodebench_delegate.py",
+          )
+
+          check(
+              "Reward-gap filter is binary and requires pass-with / fail-without",
+              'float(validation.get("reward_w_hack", 0.0)) == 1.0' in pipeline
+              and 'float(validation.get("reward_wo_hack", 0.0)) == 0.0' in pipeline,
+              "examples/reward_hack_sft/pipeline.py:passes_reward_hack_filter",
+          )
+
+          report = {
+              "scope": "static source invariant checks",
+              "commit": __import__("subprocess").check_output(
+                  ["git", "rev-parse", "HEAD"], text=True
+              ).strip(),
+              "passed": sum(x["passed"] for x in checks),
+              "total": len(checks),
+              "checks": checks,
+              "limitations": [
+                  "This job does not execute candidate submissions.",
+                  "This job does not prove operating-system-level isolation.",
+                  "This job is not a substitute for the repository pytest suite or an adversarial runtime test.",
+              ],
+          }
+          Path("catch-forensic-report.json").write_text(json.dumps(report, indent=2) + "\n")
+          lines = [
+              "# CATCH Forensic Static Audit",
+              "",
+              f"- Commit: `{report['commit']}`",
+              f"- Result: **{report['passed']}/{report['total']} static source checks passed**",
+              "- Scope: source invariants only; no candidate code executed.",
+              "",
+              "## Findings",
+          ]
+          lines.extend(f"- **{'PASS' if x['passed'] else 'FAIL'}**: {x['name']} ({x['evidence']})" for x in checks)
+          lines += [
+              "",
+              "## Limitations",
+              *[f"- {item}" for item in report["limitations"]],
+              "",
+              "## Interpretation",
+              "The explicit no-hack configuration and regression coverage are positive signals. However, the runtime guard explicitly describes itself as not being a sandbox. The reward-gap filter establishes evaluator disagreement on the selected test set, not by itself genuine task correctness or exploit causality.",
+          ]
+          Path("catch-forensic-report.md").write_text("\n".join(lines) + "\n")
+          PY
+
+      - name: Publish report in job summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f catch-forensic-report.md ]; then cat catch-forensic-report.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload forensic report
+        uses: actions/upload-artifact@v4
+        with:
+          name: catch-forensic-static-audit
+          path: |
+            catch-forensic-report.md
+            catch-forensic-report.json
+          if-no-files-found: error
+          retention-days: 7
