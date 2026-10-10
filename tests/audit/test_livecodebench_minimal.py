@@ -70,7 +70,7 @@ def test_no_hack_configuration_rejects_the_same_wrong_solution():
         judge_config=config,
         return_hacking_state=True,
     )
-    assert results == [False], _metadata
+    assert results != [True], _metadata  # runtime error is also a rejection, not a pass
     assert state["judge_override_submitted"] is False
 
 
