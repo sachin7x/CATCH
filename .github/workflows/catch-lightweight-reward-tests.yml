@@ -9,6 +9,7 @@ on:
       - .github/workflows/catch-lightweight-reward-tests.yml
       - rllm/rewards/code_utils/livecodebench.py
       - rllm/rewards/code_utils/utils.py
+      - examples/reward_hack_sft/pipeline.py
   workflow_dispatch:
 
 permissions:
@@ -50,7 +51,7 @@ jobs:
             echo "- Branch: $(git branch --show-current)"
             echo "- Python: $(python --version 2>&1)"
             echo "- Result exit code: $test_status"
-            echo "- Scope: three focused LiveCodeBench behavior tests; no model training and no OS-level sandbox claim."
+            echo "- Scope: focused LiveCodeBench behavior and reward-gap evidence tests; no model training and no OS-level sandbox claim."
             echo
             echo "## Test output"
             cat audit-results/reward-regression-tests.txt
