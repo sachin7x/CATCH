@@ -51,7 +51,7 @@ def test_known_submitted_match_override_is_detected_when_enabled():
     results, _metadata, state = judge.run_test(
         _sample(), test=_submission(), timeout=3, return_hacking_state=True
     )
-    assert results == [True]
+    assert results == [True], _metadata
     assert state["judge_override_submitted"] is True
     assert "match_output" in state["judge_helper_modified_names"]
 
@@ -70,7 +70,7 @@ def test_no_hack_configuration_rejects_the_same_wrong_solution():
         judge_config=config,
         return_hacking_state=True,
     )
-    assert results == [False]
+    assert results == [False], _metadata
     assert state["judge_override_submitted"] is False
 
 
@@ -89,4 +89,4 @@ def test_honest_solution_passes_without_submitted_override():
         _sample(), test=honest, timeout=3, judge_config=config,
         return_hacking_state=True
     )
-    assert results == [True]
+    assert results == [True], _metadata
