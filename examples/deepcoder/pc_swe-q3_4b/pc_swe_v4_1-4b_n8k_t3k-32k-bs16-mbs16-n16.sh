@@ -3,8 +3,8 @@
 #SBATCH -p a01,h01                   # 指定分区
 #SBATCH -N 1                         # 只用 1 台机器，确保走 4 卡 A800 满血 NVLink
 #SBATCH -n 1                         # 1 个主任务进程
-#SBATCH --gres=gpu:4                 # 索要 2 张 A800
-#SBATCH --cpus-per-task=64           # 索要 32 核 CPU (彻底解决慢 5 倍的罪魁祸首)
+#SBATCH --gres=gpu:4                 # Request 4 GPUs
+#SBATCH --cpus-per-task=64           # Request 64 CPU cores
 #SBATCH -o %x_%j.log                 # 标准输出日志：任务名_任务ID.log
 #SBATCH -e %x_%j.log                 # 错误日志：任务名_任务ID.err
 #SBATCH --no-requeue
@@ -37,7 +37,65 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 train_files="$DEEPCODER_SWE_V4_1_TRAIN_FILE"
 val_files="$DEEPCODER_SWE_V4_1_VAL_FILE"
 model_path="$SFT_N8K_T3K_MODEL_PATH"
-output_dir="${CHECKPOINT_ROOT}/$proj_name/$exp_name"
+output_dir="${CHECKPOINT_ROOT:-}/${proj_name:-}/$exp_name"
+
+# === Preflight validation ===
+# Default to a fresh run. Set CATCH_RUN_MODE=resume only when continuing an
+# existing run intentionally. Fresh runs refuse to reuse an existing directory.
+set -e
+required_vars=(
+    DEEPCODER_SWE_V4_1_TRAIN_FILE
+    DEEPCODER_SWE_V4_1_VAL_FILE
+    SFT_N8K_T3K_MODEL_PATH
+    CHECKPOINT_ROOT
+    proj_name
+    WANDB_API_KEY
+)
+for name in "${required_vars[@]}"; do
+    if [[ -z "${!name:-}" || "${!name}" == "xxxxx" ]]; then
+        printf 'ERROR: required environment variable %s is empty or still a placeholder. Configure it in .env or export it before launch.\n' "$name" >&2
+        exit 2
+    fi
+done
+
+if [[ ! -f "$train_files" || ! -r "$train_files" ]]; then
+    printf 'ERROR: training dataset is missing or unreadable: %s\n' "$train_files" >&2
+    exit 2
+fi
+if [[ ! -f "$val_files" || ! -r "$val_files" ]]; then
+    printf 'ERROR: validation dataset is missing or unreadable: %s\n' "$val_files" >&2
+    exit 2
+fi
+if [[ ! -e "$model_path" || ! -r "$model_path" ]]; then
+    printf 'ERROR: SFT model checkpoint is missing or unreadable: %s\n' "$model_path" >&2
+    exit 2
+fi
+
+run_mode="${CATCH_RUN_MODE:-fresh}"
+case "$run_mode" in
+    fresh)
+        if [[ -e "$output_dir" ]]; then
+            printf 'ERROR: fresh run refuses to reuse existing output directory: %s\n' "$output_dir" >&2
+            printf 'Choose a new exp_name or set CATCH_RUN_MODE=resume to continue intentionally.\n' >&2
+            exit 2
+        fi
+        resume_mode=disable
+        ;;
+    resume)
+        if [[ ! -d "$output_dir" ]]; then
+            printf 'ERROR: CATCH_RUN_MODE=resume requested but output directory does not exist: %s\n' "$output_dir" >&2
+            exit 2
+        fi
+        resume_mode=auto
+        ;;
+    *)
+        printf 'ERROR: CATCH_RUN_MODE must be either fresh or resume; got %s\n' "$run_mode" >&2
+        exit 2
+        ;;
+esac
+
+printf 'Preflight passed.\n  mode: %s\n  train: %s\n  validation: %s\n  model: %s\n  output: %s\n  resume_mode: %s\n' \
+    "$run_mode" "$train_files" "$val_files" "$model_path" "$output_dir" "$resume_mode"
 
 # === Runtime setup ===
 wandb login "$WANDB_API_KEY"
@@ -105,7 +163,7 @@ python3 -m examples.deepcoder.train_deepcoder \
     trainer.save_freq=10 \
     trainer.test_freq=20 \
     trainer.default_hdfs_dir=null \
-    trainer.resume_mode=auto \
+    trainer.resume_mode=$resume_mode \
     +trainer.train_generations_to_log_to_wandb=0 \
     +trainer.val_generations_to_log_to_wandb=0 \
     +trainer.train_generations_to_log_to_lark="$TRAIN_LARK_SAMPLES" \
