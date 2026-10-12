@@ -3,10 +3,10 @@
 import ast
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 from dotenv import dotenv_values
@@ -64,7 +64,7 @@ def test_shell_configuration_is_loaded_before_any_work(script, configured_checko
     # Only the bootstrap and assignments are executed; the runtime block is absent.
     result = subprocess.run(["bash", str(target)], cwd=checkout, env=environment, capture_output=True, text=True, check=True, timeout=20)
     payload = json.loads(result.stdout)
-    local = dict(zip(local_names, payload["local"]))
+    local = dict(zip(local_names, payload["local"], strict=True))
     env = payload["env"]
     assert env["WANDB_ENTITY"] == "caller-team"
     assert env["WANDB_RUN_ID"] == "caller-run"
