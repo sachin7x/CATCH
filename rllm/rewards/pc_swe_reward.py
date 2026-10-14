@@ -171,6 +171,28 @@ def _parse_repo_permissions(task_info: dict[str, Any], repo_files: dict[str, str
     return permissions
 
 
+def _filter_submitted_files(
+    submitted_files: dict[str, str],
+    permissions: dict[str, bool],
+) -> tuple[dict[str, str], list[str]]:
+    """Keep only files explicitly allowed by the task's write permissions.
+
+    Existing scaffold files default to writable in _parse_repo_permissions.
+    New paths must be explicitly granted in repo_file_permissions; otherwise
+    a submission could add pytest configuration or startup hooks that alter the
+    evaluator instead of solving the task.
+    """
+    denied_paths = sorted(
+        path for path in submitted_files if not permissions.get(path, False)
+    )
+    filtered = {
+        path: content
+        for path, content in submitted_files.items()
+        if path not in denied_paths
+    }
+    return filtered, denied_paths
+
+
 def _write_repo_files(repo_root: Path, repo_files: dict[str, str]) -> None:
     for relative_path, content in repo_files.items():
         target = repo_root / relative_path
@@ -1185,16 +1207,9 @@ class RewardPCSWEFn:
             )
 
         permissions = _parse_repo_permissions(task_info, repo_files)
-        read_only_violations = sorted(
-            path
-            for path in submitted_files
-            if path in repo_files and not permissions.get(path, True)
+        filtered_submitted_files, read_only_violations = _filter_submitted_files(
+            submitted_files, permissions
         )
-        filtered_submitted_files = { # filter readonly file submissions
-            path: content
-            for path, content in submitted_files.items()
-            if path not in read_only_violations
-        }
 
         monitor_summary = _build_pc_swe_submission_summary(
             base_files=repo_files,
