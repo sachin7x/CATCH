@@ -4,6 +4,26 @@ _TARGET = "verl.workers.rollout.vllm_rollout.vllm_rollout_spmd"
 _TARGET_GR = "verl.workers.actor.dp_actor"
 
 
+_CHI2_FIELDS = {"use_chi_square_loss", "chi_square_loss_coef"}
+_GR_FIELDS = {
+    "use_gr",
+    "gr_gamma",
+    "gr_epsilon",
+    "gr_disturbance_clip",
+    "gr_perturbed_clip",
+}
+_REGULARIZATION_FIELDS = _CHI2_FIELDS | _GR_FIELDS
+
+
+def _pop_regularization_kwargs(kwargs: dict) -> dict:
+    """Remove CATCH-only regularization fields before upstream config init."""
+    return {
+        key: kwargs.pop(key)
+        for key in tuple(_REGULARIZATION_FIELDS)
+        if key in kwargs
+    }
+
+
 def setup():
     # ---- vLLM ZeroMQ patch (DISABLED — stale, do not activate) ----
     # @wrapt.when_imported(_TARGET)
@@ -26,22 +46,10 @@ def setup():
         # ------------------------------------------------------------------
         from verl.workers.config.actor import FSDPActorConfig
 
-        _CHI2_FIELDS = {"use_chi_square_loss", "chi_square_loss_coef"}
-        _GR_FIELDS = {
-            "use_gr",
-            "gr_gamma",
-            "gr_epsilon",
-            "gr_disturbance_clip",
-            "gr_perturbed_clip",
-        }
-        _REGULARIZATION_FIELDS = _CHI2_FIELDS | _GR_FIELDS
         _original_fsdp_init = FSDPActorConfig.__init__
 
         def _patched_fsdp_init(self, **kwargs):
-            regularization_kwargs = {}
-            for key in _REGULARIZATION_FIELDS:
-                if key in kwargs:
-                    regularization_kwargs[key] = kwargs.pop(key)
+            regularization_kwargs = _pop_regularization_kwargs(kwargs)
             _original_fsdp_init(self, **kwargs)
             for key, val in regularization_kwargs.items():
                 object.__setattr__(self, key, val)
