@@ -123,20 +123,13 @@ def evaluate(
         "tasks": denominator,
         "checkpoint_recall": total_observed / total_required if total_required else 0.0,
         "verified_checkpoint_completion_rate": completed_tasks / denominator if denominator else 0.0,
-        "independent_verifier_pass_rate": (
-            independently_verified_passes / known_verdicts if known_verdicts else None
-        ),
+        "independent_verifier_pass_rate": (independently_verified_passes / known_verdicts if known_verdicts else None),
         "independently_verified_passes": independently_verified_passes,
         "independently_verified_failures": independently_verified_failures,
         "unknown_verdicts": unknown_verdicts,
         "missing_verifier_results": missing_verifier,
         "completed_tasks": completed_tasks,
-        "policy": (
-            "A task counts as complete only when all required checkpoints have completed "
-            "execution_harness events with evidence and a separate verifier supplies "
-            "status=pass, authority=independent, method, and evidence. Missing or "
-            "ungrounded events/verdicts do not count as success."
-        ),
+        "policy": ("A task counts as complete only when all required checkpoints have completed execution_harness events with evidence and a separate verifier supplies status=pass, authority=independent, method, and evidence. Missing or ungrounded events/verdicts do not count as success."),
     }
 
 
