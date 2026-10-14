@@ -32,6 +32,8 @@ When changing Python code, especially under `rllm/rewards/`, `rllm/trainer/`, an
 - **Submission write allowlist:** previously, unknown paths were not treated as permission violations because filtering only checked paths already present in the scaffold. New paths are now rejected unless explicitly granted by `repo_file_permissions`; existing scaffold permissions remain unchanged. Regression tests cover denied new paths, explicitly permitted new paths, and read-only files.
 - **Hidden-baseline timeout cleanup:** after killing a timed-out worker, the parent now joins it before reading/filling shared result lists, avoiding a race with the worker's final shared-list update.
 
+- **GR launcher compatibility:** the compatibility hook previously removed only chi-squared keys before constructing upstream `FSDPActorConfig`, although the GR launcher also supplies `use_gr`, `gr_gamma`, and `gr_epsilon`. The hook now accepts and attaches the GR-specific fields as well. GPU-backed end-to-end validation is still required.
+
 ## Safe change procedure
 
 1. Inspect the current implementation and its tests before editing.
