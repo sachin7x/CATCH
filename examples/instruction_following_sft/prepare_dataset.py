@@ -132,9 +132,7 @@ def split_by_task(
     ratios = [train_ratio, validation_ratio, test_ratio]
     exact_counts = [len(task_ids) * ratio for ratio in ratios]
     counts = [int(value) for value in exact_counts]
-    for index in sorted(
-        range(3), key=lambda i: exact_counts[i] - counts[i], reverse=True
-    )[: len(task_ids) - sum(counts)]:
+    for index in sorted(range(3), key=lambda i: exact_counts[i] - counts[i], reverse=True)[: len(task_ids) - sum(counts)]:
         counts[index] += 1
 
     for empty_index in [i for i, count in enumerate(counts) if count == 0]:
@@ -151,12 +149,7 @@ def split_by_task(
         "validation": set(ordered_tasks[train_end:validation_end]),
         "test": set(ordered_tasks[validation_end:]),
     }
-    return {
-        split_name: [
-            record for record in records if record["task_id"] in split_task_ids
-        ]
-        for split_name, split_task_ids in task_split.items()
-    }
+    return {split_name: [record for record in records if record["task_id"] in split_task_ids] for split_name, split_task_ids in task_split.items()}
 
 
 def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
@@ -166,17 +159,19 @@ def _write_jsonl(path: Path, records: list[dict[str, Any]]) -> None:
 
 
 def write_splits(
-    records: list[dict[str, Any]], output_dir: Path, splits: dict[str, list[dict[str, Any]]],
-    input_path: Path, seed: int, train_ratio: float, validation_ratio: float,
+    records: list[dict[str, Any]],
+    output_dir: Path,
+    splits: dict[str, list[dict[str, Any]]],
+    input_path: Path,
+    seed: int,
+    train_ratio: float,
+    validation_ratio: float,
 ) -> dict[str, Any]:
     """Write verl-compatible Parquet files plus a non-training held-out JSONL."""
     try:
         from datasets import Dataset
     except ImportError as exc:
-        raise RuntimeError(
-            "Writing Parquet requires the project's 'datasets' dependency. "
-            "Install the project dependencies, then rerun this command."
-        ) from exc
+        raise RuntimeError("Writing Parquet requires the project's 'datasets' dependency. Install the project dependencies, then rerun this command.") from exc
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for split_name in ("train", "validation"):
@@ -195,21 +190,12 @@ def write_splits(
             "test": 1.0 - train_ratio - validation_ratio,
         },
         "counts": {name: len(rows) for name, rows in splits.items()},
-        "task_counts": {
-            name: len({record["task_id"] for record in rows})
-            for name, rows in splits.items()
-        },
-        "verification_policy": (
-            "Only status=pass, authority=independent, with method and evidence "
-            "provenance is accepted. This metadata must be produced by a separate "
-            "verifier, never copied from model self-reports."
-        ),
+        "task_counts": {name: len({record["task_id"] for record in rows}) for name, rows in splits.items()},
+        "verification_policy": ("Only status=pass, authority=independent, with method and evidence provenance is accepted. This metadata must be produced by a separate verifier, never copied from model self-reports."),
         "trainer_input": "train.parquet and validation.parquet contain a messages column",
         "held_out_test": "test.jsonl is not passed to the trainer",
     }
-    (output_dir / "manifest.json").write_text(
-        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
-    )
+    (output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return manifest
 
 
@@ -221,7 +207,8 @@ def main() -> None:
     parser.add_argument("--validation-ratio", type=float, default=0.1)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--validate-only", action="store_true",
+        "--validate-only",
+        action="store_true",
         help="Validate input and split feasibility without writing any output",
     )
     args = parser.parse_args()
@@ -230,17 +217,27 @@ def main() -> None:
     validate_records(records)
     splits = split_by_task(records, args.train_ratio, args.validation_ratio, args.seed)
     if args.validate_only:
-        print(json.dumps({
-            "valid": True,
-            "records": len(records),
-            "tasks": len({record["task_id"] for record in records}),
-            "split_counts": {name: len(rows) for name, rows in splits.items()},
-        }, indent=2))
+        print(
+            json.dumps(
+                {
+                    "valid": True,
+                    "records": len(records),
+                    "tasks": len({record["task_id"] for record in records}),
+                    "split_counts": {name: len(rows) for name, rows in splits.items()},
+                },
+                indent=2,
+            )
+        )
         return
 
     manifest = write_splits(
-        records, args.output_dir, splits, args.input, args.seed,
-        args.train_ratio, args.validation_ratio,
+        records,
+        args.output_dir,
+        splits,
+        args.input,
+        args.seed,
+        args.train_ratio,
+        args.validation_ratio,
     )
     print(json.dumps(manifest, indent=2))
 
