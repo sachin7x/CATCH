@@ -28,13 +28,12 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
-
-from rllm.rewards.rule_monitor import classify_hack_method
-from rllm.rewards.llm_monitor import LLMMonitor
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from rllm.rewards.llm_monitor import LLMMonitor
 from rllm.rewards.reward_types import RewardConfig, RewardOutput
+from rllm.rewards.rule_monitor import classify_hack_method
 
 
 FILE_BLOCK_PATTERN = re.compile(
