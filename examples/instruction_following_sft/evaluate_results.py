@@ -35,10 +35,33 @@ def _index_unique(rows: list[dict[str, Any]], label: str) -> dict[str, dict[str,
     return indexed
 
 
+def _grounded_checkpoint_events(events: Any, task_id: str) -> set[str]:
+    """Count only checkpoint completions recorded by the execution harness."""
+    if not isinstance(events, list):
+        raise ValueError(f"prediction {task_id}: checkpoint_events must be a list")
+
+    completed: set[str] = set()
+    for index, event in enumerate(events):
+        if not isinstance(event, dict):
+            raise ValueError(f"prediction {task_id}: checkpoint_events[{index}] must be an object")
+        checkpoint_id = event.get("checkpoint_id")
+        if not isinstance(checkpoint_id, str) or not checkpoint_id:
+            raise ValueError(f"prediction {task_id}: checkpoint event needs checkpoint_id")
+        grounded = (
+            event.get("status") == "completed"
+            and event.get("source") == "execution_harness"
+            and isinstance(event.get("evidence"), str)
+            and bool(event["evidence"].strip())
+        )
+        if grounded:
+            completed.add(checkpoint_id)
+    return completed
+
+
 def evaluate(
     predictions: list[dict[str, Any]], verifier_results: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    """Never infer correctness from model output or a model-authored verdict."""
+    """Never infer checkpoint completion or correctness from model-authored claims."""
     prediction_by_task = _index_unique(predictions, "predictions")
     verifier_by_task = _index_unique(verifier_results, "verifier_results")
 
@@ -52,7 +75,6 @@ def evaluate(
 
     for task_id, prediction in prediction_by_task.items():
         required = prediction.get("required_checkpoints")
-        observed = prediction.get("observed_checkpoints")
         if (
             not isinstance(required, list)
             or not required
@@ -60,14 +82,11 @@ def evaluate(
             or len(set(required)) != len(required)
         ):
             raise ValueError(f"prediction {task_id}: required_checkpoints must be a unique non-empty string list")
-        if (
-            not isinstance(observed, list)
-            or any(not isinstance(item, str) or not item for item in observed)
-        ):
-            raise ValueError(f"prediction {task_id}: observed_checkpoints must be a string list")
 
         required_set = set(required)
-        observed_set = set(observed)
+        observed_set = _grounded_checkpoint_events(
+            prediction.get("checkpoint_events"), task_id
+        )
         total_required += len(required_set)
         total_observed += len(required_set & observed_set)
         checkpoints_complete = required_set.issubset(observed_set)
@@ -113,16 +132,17 @@ def evaluate(
         "missing_verifier_results": missing_verifier,
         "completed_tasks": completed_tasks,
         "policy": (
-            "A task counts as complete only when all required checkpoints are observed "
-            "and a separate verifier supplies status=pass, authority=independent, "
-            "method, and evidence. Missing or ungrounded verdicts are UNKNOWN, not pass."
+            "A task counts as complete only when all required checkpoints have completed "
+            "execution_harness events with evidence and a separate verifier supplies "
+            "status=pass, authority=independent, method, and evidence. Missing or "
+            "ungrounded events/verdicts do not count as success."
         ),
     }
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--predictions", type=Path, required=True, help="Harness-parsed model traces in JSONL")
+    parser.add_argument("--predictions", type=Path, required=True, help="Harness-produced checkpoint event records in JSONL")
     parser.add_argument("--verifier-results", type=Path, required=True, help="Separate independent verifier results in JSONL")
     parser.add_argument("--output", type=Path, required=True, help="Output JSON report")
     args = parser.parse_args()
