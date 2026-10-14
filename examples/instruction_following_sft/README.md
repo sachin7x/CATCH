@@ -50,9 +50,8 @@ it cannot cryptographically prove who authored the verifier record.
 
 Accepted message roles are system, user, assistant, and tool. Every message needs
 non-empty string content. checkpoint_ids must be unique, and every ID must appear
-in assistant content using the exact marker format shown in the example. The
-external evaluator, not this training validator, determines whether the code/task
-actually succeeded.
+in assistant content using the exact marker format shown in the example. These
+markers are SFT targets, **not proof that the checkpoint actually ran**.
 
 ## 2. Mac: validate and prepare data
 
@@ -113,11 +112,13 @@ trainer compatibility before a long run.
 
 ## 4. Evaluate against an independent verifier
 
-Prepare two JSONL files from the evaluation harness. The predictions file is
-parsed from actual model traces:
+Prepare two JSONL files from the evaluation harness. Predictions must contain
+checkpoint events emitted by the execution harness, **not a list copied from
+assistant text**. An event counts only when its source is execution_harness,
+its status is completed, and it carries a non-empty evidence reference:
 
 ~~~json
-{"task_id":"repo-task-17","required_checkpoints":["inspect","implement","verify"],"observed_checkpoints":["inspect","implement","verify"]}
+{"task_id":"repo-task-17","required_checkpoints":["inspect","implement","verify"],"checkpoint_events":[{"checkpoint_id":"inspect","status":"completed","source":"execution_harness","evidence":"event-17-inspect"},{"checkpoint_id":"implement","status":"completed","source":"execution_harness","evidence":"event-17-implement"},{"checkpoint_id":"verify","status":"completed","source":"execution_harness","evidence":"event-17-verify"}]}
 ~~~
 
 The verifier file is emitted separately by the execution/test harness, not by
@@ -138,9 +139,11 @@ python examples/instruction_following_sft/evaluate_results.py \
 
 Metrics include checkpoint recall, verified checkpoint completion rate,
 independent-verifier pass rate, and unknown/missing verdict counts. A task counts
-as complete only if all required checkpoints were observed **and** the separate
-verifier supplied a grounded pass. This evaluator consumes verifier results; it
-does not execute submitted code itself.
+as complete only if all required checkpoints have grounded execution-harness
+events **and** the separate verifier supplied a grounded pass. The evaluator
+consumes event/verifier records; it does not execute submitted code or
+cryptographically authenticate those records itself. The harness must protect
+the provenance and append-only evidence log.
 
 ## 5. Safe iteration
 
