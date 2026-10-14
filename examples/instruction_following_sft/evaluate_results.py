@@ -1,4 +1,5 @@
 """Score checkpointed instruction-following traces against separate verifier results."""
+
 from __future__ import annotations
 
 import argparse
