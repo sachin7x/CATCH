@@ -47,20 +47,13 @@ def _grounded_checkpoint_events(events: Any, task_id: str) -> set[str]:
         checkpoint_id = event.get("checkpoint_id")
         if not isinstance(checkpoint_id, str) or not checkpoint_id:
             raise ValueError(f"prediction {task_id}: checkpoint event needs checkpoint_id")
-        grounded = (
-            event.get("status") == "completed"
-            and event.get("source") == "execution_harness"
-            and isinstance(event.get("evidence"), str)
-            and bool(event["evidence"].strip())
-        )
+        grounded = event.get("status") == "completed" and event.get("source") == "execution_harness" and isinstance(event.get("evidence"), str) and bool(event["evidence"].strip())
         if grounded:
             completed.add(checkpoint_id)
     return completed
 
 
-def evaluate(
-    predictions: list[dict[str, Any]], verifier_results: list[dict[str, Any]]
-) -> dict[str, Any]:
+def evaluate(predictions: list[dict[str, Any]], verifier_results: list[dict[str, Any]]) -> dict[str, Any]:
     """Never infer checkpoint completion or correctness from model-authored claims."""
     prediction_by_task = _index_unique(predictions, "predictions")
     verifier_by_task = _index_unique(verifier_results, "verifier_results")
@@ -75,18 +68,11 @@ def evaluate(
 
     for task_id, prediction in prediction_by_task.items():
         required = prediction.get("required_checkpoints")
-        if (
-            not isinstance(required, list)
-            or not required
-            or any(not isinstance(item, str) or not item for item in required)
-            or len(set(required)) != len(required)
-        ):
+        if not isinstance(required, list) or not required or any(not isinstance(item, str) or not item for item in required) or len(set(required)) != len(required):
             raise ValueError(f"prediction {task_id}: required_checkpoints must be a unique non-empty string list")
 
         required_set = set(required)
-        observed_set = _grounded_checkpoint_events(
-            prediction.get("checkpoint_events"), task_id
-        )
+        observed_set = _grounded_checkpoint_events(prediction.get("checkpoint_events"), task_id)
         total_required += len(required_set)
         total_observed += len(required_set & observed_set)
         checkpoints_complete = required_set.issubset(observed_set)
@@ -97,13 +83,7 @@ def evaluate(
             unknown_verdicts += 1
             continue
 
-        independently_grounded = (
-            verdict.get("authority") == "independent"
-            and isinstance(verdict.get("method"), str)
-            and bool(verdict["method"].strip())
-            and isinstance(verdict.get("evidence"), str)
-            and bool(verdict["evidence"].strip())
-        )
+        independently_grounded = verdict.get("authority") == "independent" and isinstance(verdict.get("method"), str) and bool(verdict["method"].strip()) and isinstance(verdict.get("evidence"), str) and bool(verdict["evidence"].strip())
         if not independently_grounded or verdict.get("status") not in {"pass", "fail"}:
             unknown_verdicts += 1
             continue
