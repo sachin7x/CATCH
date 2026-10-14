@@ -127,7 +127,7 @@ def split_by_task(
 
     ordered_tasks = sorted(
         task_ids,
-        key=lambda task_id: hashlib.sha256(f"{seed}:{task_id}".encode("utf-8")).hexdigest(),
+        key=lambda task_id: hashlib.sha256(f"{seed}:{task_id}".encode()).hexdigest(),
     )
     ratios = [train_ratio, validation_ratio, test_ratio]
     exact_counts = [len(task_ids) * ratio for ratio in ratios]
