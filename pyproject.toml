@@ -139,6 +139,8 @@ flash-attn = [
 ]
 
 [tool.ruff]
+# Match the declared minimum Python version; do not assume newer syntax.
+target-version = "py310"
 line-length = 5000 # TODO: Reduce this to a more reasonable value
 
 [tool.ruff.lint]

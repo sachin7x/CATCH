@@ -1,6 +1,10 @@
 import pytest
 
-from rllm.rewards.pc_swe_reward import _parse_repo_permissions, extract_pc_swe_submission
+from rllm.rewards.pc_swe_reward import (
+    _filter_submitted_files,
+    _parse_repo_permissions,
+    extract_pc_swe_submission,
+)
 
 
 def test_extract_pc_swe_submission_requires_path_attribute() -> None:
@@ -66,3 +70,36 @@ Each `<file>` block must contain the complete final content of that file.
     permissions = _parse_repo_permissions(task_info, repo_files)
 
     assert permissions == {"planner.py": True}
+
+
+def test_filter_submitted_files_denies_unlisted_new_paths() -> None:
+    submitted = {
+        "planner.py": "def solve(): return 1",
+        "conftest.py": "# injected pytest hooks",
+    }
+    permissions = {"planner.py": True}
+
+    filtered, denied = _filter_submitted_files(submitted, permissions)
+
+    assert filtered == {"planner.py": "def solve(): return 1"}
+    assert denied == ["conftest.py"]
+
+
+def test_filter_submitted_files_allows_explicitly_permitted_new_paths() -> None:
+    submitted = {"planner.py": "def solve(): return 1", "helpers.py": "VALUE = 1"}
+    permissions = {"planner.py": True, "helpers.py": True}
+
+    filtered, denied = _filter_submitted_files(submitted, permissions)
+
+    assert filtered == submitted
+    assert denied == []
+
+
+def test_filter_submitted_files_preserves_read_only_file_rejection() -> None:
+    submitted = {"planner.py": "def solve(): return 1", "tests/test_rpc_server.py": "# tampered"}
+    permissions = {"planner.py": True, "tests/test_rpc_server.py": False}
+
+    filtered, denied = _filter_submitted_files(submitted, permissions)
+
+    assert filtered == {"planner.py": "def solve(): return 1"}
+    assert denied == ["tests/test_rpc_server.py"]
