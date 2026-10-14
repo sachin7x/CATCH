@@ -1,0 +1,31 @@
+name: Instruction-following SFT unit tests
+
+on:
+  pull_request:
+    paths:
+      - "examples/instruction_following_sft/**"
+      - "tests/test_instruction_following_sft.py"
+      - ".github/workflows/instruction-following-sft.yml"
+  push:
+    branches:
+      - "feat/instruction-following-checkpoint-sft"
+    paths:
+      - "examples/instruction_following_sft/**"
+      - "tests/test_instruction_following_sft.py"
+      - ".github/workflows/instruction-following-sft.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install test dependency
+        run: python -m pip install --upgrade pytest
+      - name: Test data validation, split isolation, and verifier policy
+        run: python -m pytest -q tests/test_instruction_following_sft.py
