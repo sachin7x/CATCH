@@ -27,15 +27,23 @@ def setup():
         from verl.workers.config.actor import FSDPActorConfig
 
         _CHI2_FIELDS = {"use_chi_square_loss", "chi_square_loss_coef"}
+        _GR_FIELDS = {
+            "use_gr",
+            "gr_gamma",
+            "gr_epsilon",
+            "gr_disturbance_clip",
+            "gr_perturbed_clip",
+        }
+        _REGULARIZATION_FIELDS = _CHI2_FIELDS | _GR_FIELDS
         _original_fsdp_init = FSDPActorConfig.__init__
 
         def _patched_fsdp_init(self, **kwargs):
-            chi2_kwargs = {}
-            for key in _CHI2_FIELDS:
+            regularization_kwargs = {}
+            for key in _REGULARIZATION_FIELDS:
                 if key in kwargs:
-                    chi2_kwargs[key] = kwargs.pop(key)
+                    regularization_kwargs[key] = kwargs.pop(key)
             _original_fsdp_init(self, **kwargs)
-            for key, val in chi2_kwargs.items():
+            for key, val in regularization_kwargs.items():
                 object.__setattr__(self, key, val)
 
         FSDPActorConfig.__init__ = _patched_fsdp_init
