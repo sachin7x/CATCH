@@ -7,6 +7,7 @@ set -euo pipefail
 : "${TRAIN_PARQUET:?Set TRAIN_PARQUET to the prepared train.parquet}"
 : "${VAL_PARQUET:?Set VAL_PARQUET to the prepared validation.parquet}"
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 OUTPUT_DIR="${OUTPUT_DIR:-outputs/instruction-following-sft}"
 NPROC_PER_NODE="${NPROC_PER_NODE:-1}"
 TRAIN_BATCH_SIZE="${TRAIN_BATCH_SIZE:-2}"
@@ -23,7 +24,7 @@ python -m torch.distributed.run \
   --standalone \
   --nnodes=1 \
   --nproc_per_node="$NPROC_PER_NODE" \
-  train_instruction_sft.py \
+  "$SCRIPT_DIR/train_instruction_sft.py" \
   "model.partial_pretrain=$BASE_MODEL" \
   model.enable_gradient_checkpointing=true \
   model.lora_rank=16 \
