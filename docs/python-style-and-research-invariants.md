@@ -27,6 +27,11 @@ When changing Python code, especially under `rllm/rewards/`, `rllm/trainer/`, an
 5. Treat task write permissions as an allowlist: existing scaffold files use their declared permissions, and newly introduced paths must be explicitly granted. This prevents unapproved pytest configuration or startup hooks from changing evaluation.
 6. Add or update focused regression tests for any behavioral change. A lint or formatter pass is not evidence of research correctness.
 
+## Findings addressed in this audit
+
+- **Submission write allowlist:** previously, unknown paths were not treated as permission violations because filtering only checked paths already present in the scaffold. New paths are now rejected unless explicitly granted by `repo_file_permissions`; existing scaffold permissions remain unchanged. Regression tests cover denied new paths, explicitly permitted new paths, and read-only files.
+- **Hidden-baseline timeout cleanup:** after killing a timed-out worker, the parent now joins it before reading/filling shared result lists, avoiding a race with the worker's final shared-list update.
+
 ## Safe change procedure
 
 1. Inspect the current implementation and its tests before editing.
