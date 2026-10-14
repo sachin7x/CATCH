@@ -24,7 +24,8 @@ When changing Python code, especially under `rllm/rewards/`, `rllm/trainer/`, an
 2. Do not redefine the meanings of `is_hack`, `nontrivial_hack`, `hack_method`, or related audit fields through style refactors.
 3. Keep monitor predictions as monitor evidence, not as the gold execution-based correctness verdict.
 4. Preserve reward component names, weighting, cache bonuses, and serialization unless a separately reviewed experiment explicitly changes them.
-5. Add or update focused regression tests for any behavioral change. A lint or formatter pass is not evidence of research correctness.
+5. Treat task write permissions as an allowlist: existing scaffold files use their declared permissions, and newly introduced paths must be explicitly granted. This prevents unapproved pytest configuration or startup hooks from changing evaluation.
+6. Add or update focused regression tests for any behavioral change. A lint or formatter pass is not evidence of research correctness.
 
 ## Safe change procedure
 
