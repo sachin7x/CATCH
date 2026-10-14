@@ -15,11 +15,7 @@ def _record(record_id: str, task_id: str) -> dict:
             {"role": "user", "content": "Implement the change and verify it."},
             {
                 "role": "assistant",
-                "content": (
-                    "Inspect first. [[CHECKPOINT: inspect]] "
-                    "Implement narrowly. [[CHECKPOINT: implement]] "
-                    "Run independent tests. [[CHECKPOINT: verify]]"
-                ),
+                "content": ("Inspect first. [[CHECKPOINT: inspect]] Implement narrowly. [[CHECKPOINT: implement]] Run independent tests. [[CHECKPOINT: verify]]"),
             },
         ],
         "checkpoint_ids": ["inspect", "implement", "verify"],
@@ -86,11 +82,7 @@ def test_split_keeps_all_records_for_a_task_in_one_partition() -> None:
         _record("trace-6", "task-5"),
     ]
     splits = split_by_task(records, seed=9)
-    task_owners = {
-        record["task_id"]: split_name
-        for split_name, split_records in splits.items()
-        for record in split_records
-    }
+    task_owners = {record["task_id"]: split_name for split_name, split_records in splits.items() for record in split_records}
     assert len(task_owners) == 5
     assert set(task_owners) == {"task-1", "task-2", "task-3", "task-4", "task-5"}
     assert len(set(task_owners.values())) == 3
