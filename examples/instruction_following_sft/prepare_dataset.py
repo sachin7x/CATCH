@@ -51,10 +51,7 @@ def validate_record(record: dict[str, Any], index: int) -> None:
         if not isinstance(message, dict):
             raise ValueError(f"{prefix}: messages[{message_index}] must be an object")
         if message.get("role") not in _ALLOWED_ROLES:
-            raise ValueError(
-                f"{prefix}: messages[{message_index}].role must be one of "
-                f"{sorted(_ALLOWED_ROLES)}"
-            )
+            raise ValueError(f"{prefix}: messages[{message_index}].role must be one of {sorted(_ALLOWED_ROLES)}")
         if not _nonempty_string(message.get("content")):
             raise ValueError(f"{prefix}: messages[{message_index}].content must be non-empty")
         if message["role"] == "assistant":
@@ -64,24 +61,13 @@ def validate_record(record: dict[str, Any], index: int) -> None:
         raise ValueError(f"{prefix}: at least one assistant message is required")
 
     checkpoint_ids = record.get("checkpoint_ids")
-    if (
-        not isinstance(checkpoint_ids, list)
-        or not checkpoint_ids
-        or any(not _nonempty_string(item) for item in checkpoint_ids)
-        or len(set(checkpoint_ids)) != len(checkpoint_ids)
-    ):
+    if not isinstance(checkpoint_ids, list) or not checkpoint_ids or any(not _nonempty_string(item) for item in checkpoint_ids) or len(set(checkpoint_ids)) != len(checkpoint_ids):
         raise ValueError(f"{prefix}: checkpoint_ids must be a non-empty unique string list")
 
     combined_assistant_text = "\n".join(assistant_text)
-    missing = [
-        checkpoint_id
-        for checkpoint_id in checkpoint_ids
-        if f"[[CHECKPOINT: {checkpoint_id}]]" not in combined_assistant_text
-    ]
+    missing = [checkpoint_id for checkpoint_id in checkpoint_ids if f"[[CHECKPOINT: {checkpoint_id}]]" not in combined_assistant_text]
     if missing:
-        raise ValueError(
-            f"{prefix}: assistant messages are missing checkpoint markers for {missing}"
-        )
+        raise ValueError(f"{prefix}: assistant messages are missing checkpoint markers for {missing}")
 
     verification = record.get("verification")
     if not isinstance(verification, dict):
