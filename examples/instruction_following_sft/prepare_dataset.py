@@ -3,6 +3,7 @@
 This script is intentionally usable on a CPU-only Mac. It prepares data only;
 the repository's verl/FSDP trainer is intended for a compatible Linux GPU host.
 """
+
 from __future__ import annotations
 
 import argparse
