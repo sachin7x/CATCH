@@ -32,6 +32,32 @@ def _record(record_id: str, task_id: str) -> dict:
     }
 
 
+def _prediction(task_id: str, source: str = "execution_harness") -> dict:
+    return {
+        "task_id": task_id,
+        "required_checkpoints": ["inspect", "implement", "verify"],
+        "checkpoint_events": [
+            {
+                "checkpoint_id": checkpoint_id,
+                "status": "completed",
+                "source": source,
+                "evidence": f"event-{task_id}-{checkpoint_id}",
+            }
+            for checkpoint_id in ("inspect", "implement", "verify")
+        ],
+    }
+
+
+def _verifier_result(task_id: str, authority: str = "independent") -> dict:
+    return {
+        "task_id": task_id,
+        "status": "pass",
+        "authority": authority,
+        "method": "pytest and hidden tests",
+        "evidence": f"run-{task_id}",
+    }
+
+
 def test_validation_accepts_independently_verified_checkpointed_trace() -> None:
     validate_records([_record("trace-1", "task-1")])
 
@@ -72,49 +98,35 @@ def test_split_keeps_all_records_for_a_task_in_one_partition() -> None:
 
 
 def test_evaluator_requires_separate_grounded_verifier_result() -> None:
-    predictions = [{
-        "task_id": "task-1",
-        "required_checkpoints": ["inspect", "implement", "verify"],
-        "observed_checkpoints": ["inspect", "implement", "verify"],
-    }]
-    report = evaluate(predictions, [])
+    report = evaluate([_prediction("task-1")], [])
     assert report["completed_tasks"] == 0
     assert report["unknown_verdicts"] == 1
     assert report["missing_verifier_results"] == 1
 
 
+def test_evaluator_does_not_count_model_authored_checkpoint_claims() -> None:
+    report = evaluate(
+        [_prediction("task-1", source="model")],
+        [_verifier_result("task-1")],
+    )
+    assert report["completed_tasks"] == 0
+    assert report["checkpoint_recall"] == 0.0
+
+
 def test_evaluator_does_not_count_self_report_as_independent_pass() -> None:
-    predictions = [{
-        "task_id": "task-1",
-        "required_checkpoints": ["inspect", "verify"],
-        "observed_checkpoints": ["inspect", "verify"],
-    }]
-    verifier_results = [{
-        "task_id": "task-1",
-        "status": "pass",
-        "authority": "model",
-        "method": "self-report",
-        "evidence": "the model said it passed",
-    }]
-    report = evaluate(predictions, verifier_results)
+    report = evaluate(
+        [_prediction("task-1")],
+        [_verifier_result("task-1", authority="model")],
+    )
     assert report["completed_tasks"] == 0
     assert report["unknown_verdicts"] == 1
 
 
-def test_evaluator_counts_only_independent_pass_with_all_checkpoints() -> None:
-    predictions = [{
-        "task_id": "task-1",
-        "required_checkpoints": ["inspect", "verify"],
-        "observed_checkpoints": ["inspect", "verify"],
-    }]
-    verifier_results = [{
-        "task_id": "task-1",
-        "status": "pass",
-        "authority": "independent",
-        "method": "pytest and hidden tests",
-        "evidence": "run-17",
-    }]
-    report = evaluate(predictions, verifier_results)
+def test_evaluator_counts_only_grounded_checkpoints_and_independent_pass() -> None:
+    report = evaluate(
+        [_prediction("task-1")],
+        [_verifier_result("task-1")],
+    )
     assert report["completed_tasks"] == 1
     assert report["verified_checkpoint_completion_rate"] == 1.0
     assert report["independent_verifier_pass_rate"] == 1.0
