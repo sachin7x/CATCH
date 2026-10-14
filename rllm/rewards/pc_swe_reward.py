@@ -988,6 +988,9 @@ def _run_hidden_baseline(
 
     if p.is_alive():
         p.kill()
+        # Reap the killed worker before inspecting shared results. Without this
+        # join, the parent can race with the worker's final shared-list write.
+        p.join()
         # Build failure entries for missing cases
         for idx in range(len(result_list), len(ground_truth_cases)):
             cancelled_result, cancelled_metadata = _build_hidden_baseline_cancelled_entry(
