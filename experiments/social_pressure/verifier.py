@@ -5,8 +5,9 @@ natural-language meaning. It must not treat missing evidence as proof of success
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Any, Iterable
+from collections.abc import Iterable
+from dataclasses import asdict, dataclass
+from typing import Any
 
 
 @dataclass(frozen=True)
