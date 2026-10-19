@@ -1,4 +1,3 @@
-"""Run the committed deterministic fixtures and print JSON results."""
 import json
 from pathlib import Path
 
