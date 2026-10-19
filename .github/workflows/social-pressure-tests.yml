@@ -1,0 +1,26 @@
+name: Social-pressure verifier tests
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/social_pressure/**'
+      - '.github/workflows/social-pressure-tests.yml'
+  push:
+    branches:
+      - 'experiment/social-pressure-robustness'
+    paths:
+      - 'experiments/social_pressure/**'
+      - '.github/workflows/social-pressure-tests.yml'
+
+jobs:
+  verifier-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Unit tests
+        run: python -m unittest discover -s experiments/social_pressure -p 'test_*.py' -v
+      - name: Fixtures
+        run: python experiments/social_pressure/run_fixtures.py

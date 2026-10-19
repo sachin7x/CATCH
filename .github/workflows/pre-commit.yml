@@ -11,25 +11,39 @@ jobs:
   pre-commit:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Cache pre-commit
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pre-commit
-        key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-        restore-keys: |
-          pre-commit-
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install pre-commit
-    
-    - name: Run pre-commit
-      run: pre-commit run --all-files 
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pre-commit
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pre-commit
+          key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+          restore-keys: |
+            pre-commit-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pre-commit
+
+      - name: Run pre-commit on changed files (pull requests)
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch origin "$BASE_REF" --depth=1
+          mapfile -d '' changed_files < <(git diff --diff-filter=ACMR --name-only -z "origin/$BASE_REF...HEAD")
+          if [ "${#changed_files[@]}" -gt 0 ]; then
+            pre-commit run --files "${changed_files[@]}"
+          fi
+
+      - name: Run full pre-commit suite (protected branch pushes)
+        if: github.event_name == 'push'
+        run: pre-commit run --all-files
