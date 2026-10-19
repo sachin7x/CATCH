@@ -1,6 +1,6 @@
 import json
-import unittest
 from pathlib import Path
+import unittest
 
 from verifier import verify_case
 
