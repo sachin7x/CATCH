@@ -33,17 +33,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install pre-commit
 
-      - name: Run pre-commit on changed files (pull requests)
-        if: github.event_name == 'pull_request'
+      - name: Run pre-commit on changed files
         env:
+          EVENT_NAME: ${{ github.event_name }}
           BASE_REF: ${{ github.base_ref }}
+          BEFORE_SHA: ${{ github.event.before }}
         run: |
-          git fetch origin "$BASE_REF" --depth=1
-          mapfile -d '' changed_files < <(git diff --diff-filter=ACMR --name-only -z "origin/$BASE_REF...HEAD")
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            git fetch origin "$BASE_REF" --depth=1
+            base_ref="origin/$BASE_REF"
+          elif [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            base_ref="$BEFORE_SHA"
+          else
+            base_ref=""
+          fi
+
+          if [ -n "$base_ref" ]; then
+            mapfile -d '' changed_files < <(git diff --diff-filter=ACMR --name-only -z "$base_ref...HEAD")
+          else
+            mapfile -d '' changed_files < <(git ls-files -z)
+          fi
+
           if [ "${#changed_files[@]}" -gt 0 ]; then
             pre-commit run --files "${changed_files[@]}"
           fi
-
-      - name: Run full pre-commit suite (protected branch pushes)
-        if: github.event_name == 'push'
-        run: pre-commit run --all-files
