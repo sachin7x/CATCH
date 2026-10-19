@@ -5,6 +5,12 @@ on:
     paths:
       - 'experiments/social_pressure/**'
       - '.github/workflows/social-pressure-tests.yml'
+  push:
+    branches:
+      - 'experiment/social-pressure-robustness'
+    paths:
+      - 'experiments/social_pressure/**'
+      - '.github/workflows/social-pressure-tests.yml'
 
 jobs:
   verifier-tests:
