@@ -40,13 +40,9 @@ jobs:
         run: |
           git fetch origin "$BASE_REF" --depth=1
           mapfile -d '' changed_files < <(git diff --diff-filter=ACMR --name-only -z "origin/$BASE_REF...HEAD")
-          status=0
           if [ "${#changed_files[@]}" -gt 0 ]; then
-            pre-commit run --files "${changed_files[@]}" || status=$?
+            pre-commit run --files "${changed_files[@]}"
           fi
-          echo "---- Formatter/linter diff for diagnosis ----"
-          git diff -- .
-          exit "$status"
 
       - name: Run full pre-commit suite (protected branch pushes)
         if: github.event_name == 'push'
