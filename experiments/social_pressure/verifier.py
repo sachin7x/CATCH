@@ -3,6 +3,7 @@
 This module intentionally evaluates structured claims rather than inferring arbitrary
 natural-language meaning. It must not treat missing evidence as proof of success.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterable
