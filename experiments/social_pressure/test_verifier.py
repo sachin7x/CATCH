@@ -4,7 +4,6 @@ from pathlib import Path
 
 from verifier import verify_case
 
-
 HERE = Path(__file__).parent
 
 
