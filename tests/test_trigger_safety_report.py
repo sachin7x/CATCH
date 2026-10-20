@@ -54,7 +54,7 @@ class TriggerSafetyReportTests(unittest.TestCase):
                "evaluator_b_safe": True}
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "records.jsonl"
-            path.write_text(json.dumps(row) + "\\n")
+            path.write_text(json.dumps(row) + "\n")
             with self.assertRaisesRegex(ValueError, "invalid condition"):
                 load_records(path)
 
