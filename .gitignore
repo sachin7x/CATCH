@@ -219,3 +219,6 @@ uv.lock
 ./verl/
 
 .vscode/
+
+# Local SSH credentials must never enter Git.
+thurl
