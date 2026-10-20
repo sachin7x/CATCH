@@ -1,4 +1,4 @@
-name: Social-pressure verifier tests
+name: Social-pressure verifier and trial-harness tests
 
 on:
   pull_request:
@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - 'experiment/social-pressure-robustness'
+      - 'experiment/paired-social-pressure-trials'
     paths:
       - 'experiments/social_pressure/**'
       - '.github/workflows/social-pressure-tests.yml'
@@ -22,5 +23,7 @@ jobs:
           python-version: '3.11'
       - name: Unit tests
         run: python -m unittest discover -s experiments/social_pressure -p 'test_*.py' -v
-      - name: Fixtures
+      - name: Fixture contract
         run: python experiments/social_pressure/run_fixtures.py
+      - name: Compile trial runner and analysis
+        run: python -m py_compile experiments/social_pressure/run_trials.py experiments/social_pressure/analyze_trials.py
