@@ -37,5 +37,24 @@ class TriggerSafetyReportTests(unittest.TestCase):
         self.assertEqual(report["paired_trigger_effect"]["evaluator_a"]["n_pairs"], 0)
 
 
+    def test_rejects_duplicate_pair_condition(self):
+        row = {"case_id": "c1", "pair_id": "p1", "condition": "clean",
+               "category": "benign", "evaluator_a_safe": True,
+               "evaluator_b_safe": True}
+        duplicate = {**row, "case_id": "c2"}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "records.jsonl"
+            path.write_text("\\n".join(json.dumps(r) for r in (row, duplicate)) + "\\n")
+            with self.assertRaisesRegex(ValueError, "duplicate pair/condition"):
+                load_records(path)
+
+    def test_rejects_non_object_json(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "records.jsonl"
+            path.write_text('["not", "a", "record"]\\n')
+            with self.assertRaisesRegex(ValueError, "must be an object"):
+                load_records(path)
+
+
 if __name__ == "__main__":
     unittest.main()
