@@ -48,6 +48,16 @@ class TriggerSafetyReportTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate pair/condition"):
                 load_records(path)
 
+    def test_rejects_non_string_condition(self):
+        row = {"case_id": "c1", "pair_id": "p1", "condition": [],
+               "category": "benign", "evaluator_a_safe": True,
+               "evaluator_b_safe": True}
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "records.jsonl"
+            path.write_text(json.dumps(row) + "\\n")
+            with self.assertRaisesRegex(ValueError, "invalid condition"):
+                load_records(path)
+
     def test_rejects_non_object_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "records.jsonl"
