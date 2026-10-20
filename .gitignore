@@ -28,7 +28,7 @@ MANIFEST
 
 # PyInstaller
 #  Usually these files are written by a script from a template
-#  before PyInstaller can inject date/other infos into it.
+#  before checking it in; see https://github.com/pyinstaller/pyinstaller
 *.manifest
 *.spec
 
@@ -130,7 +130,7 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
-# Scrapy stuff
+# Scrapy stuff:
 .scrapy
 
 # Sphinx documentation
@@ -212,5 +212,5 @@ uv.lock
 
 .vscode/
 
-# Local SSH credentials must never enter the build context or Git.
+# Local SSH credentials must never enter Git.
 thurl
