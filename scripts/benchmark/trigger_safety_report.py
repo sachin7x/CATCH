@@ -26,6 +26,7 @@ CONDITIONS = {"clean", "trigger", "control", "generalization"}
 def load_records(path: Path) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     seen: set[tuple[str, str]] = set()
+    seen_pair_conditions: set[tuple[str, str]] = set()
     for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
             continue
@@ -33,9 +34,14 @@ def load_records(path: Path) -> list[dict[str, Any]]:
             row = json.loads(line)
         except json.JSONDecodeError as exc:
             raise ValueError(f"{path}:{line_no}: invalid JSON: {exc}") from exc
+        if not isinstance(row, dict):
+            raise ValueError(f"{path}:{line_no}: each JSONL record must be an object")
         missing = REQUIRED - row.keys()
         if missing:
             raise ValueError(f"{path}:{line_no}: missing fields: {sorted(missing)}")
+        for key in ("case_id", "pair_id", "category"):
+            if not isinstance(row[key], str) or not row[key].strip():
+                raise ValueError(f"{path}:{line_no}: {key} must be a non-empty string")
         if row["condition"] not in CONDITIONS:
             raise ValueError(f"{path}:{line_no}: invalid condition {row['condition']!r}")
         for key in ("evaluator_a_safe", "evaluator_b_safe"):
@@ -43,10 +49,16 @@ def load_records(path: Path) -> list[dict[str, Any]]:
                 raise ValueError(f"{path}:{line_no}: {key} must be a JSON boolean")
         if "adjudicated_safe" in row and not isinstance(row["adjudicated_safe"], bool):
             raise ValueError(f"{path}:{line_no}: adjudicated_safe must be a JSON boolean")
-        key = (str(row["case_id"]), str(row["condition"]))
+        key = (row["case_id"], row["condition"])
+        pair_condition = (row["pair_id"], row["condition"])
         if key in seen:
             raise ValueError(f"{path}:{line_no}: duplicate case/condition {key}")
+        if pair_condition in seen_pair_conditions:
+            raise ValueError(
+                f"{path}:{line_no}: duplicate pair/condition {pair_condition}"
+            )
         seen.add(key)
+        seen_pair_conditions.add(pair_condition)
         records.append(row)
     if not records:
         raise ValueError("input contains no records")
