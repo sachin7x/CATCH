@@ -14,7 +14,7 @@ class RewardConfig:
     reward_easy: float = 0.3
     reward_hard: float = 0.7
 
-    # Config for math-bsed rewards
+    # Config for math-based rewards
     math_reward_weight: float = 1.0
     use_math_orm: bool = False
 
