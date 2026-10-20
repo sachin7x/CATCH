@@ -27,8 +27,8 @@ share/python-wheels/
 MANIFEST
 
 # PyInstaller
-#  Usually these files are written by a python script from a template
-#  before PyInstaller can inject date/other infos
+#  Usually these files are written by a script from a template
+#  before PyInstaller can inject date/other infos into it.
 *.manifest
 *.spec
 
@@ -83,18 +83,20 @@ profile_default/
 ipython_config.py
 
 # pyenv
-#   For a Python library, these files are often written by a script to inject date/infos.
-#   If you want to track them, uncomment the following:
+#   For a Python library, these files are often written by a script from a template
+#   before checking it in; see https://github.com/pyenv/pyenv
 # .python-version
 
 # pipenv
-#   According to pipenv/pipfile#598, lock files are recommended in version control.
+#   According to pypa/pipfile#598, it is recommended to commit Pipfile.lock.
 #Pipfile.lock
 
 # UV
+#   According to pypa/pipfile#598, it is recommended to commit uv.lock
 #uv.lock
 
 # poetry
+#   According to https://python-poetry.org/docs/basic-usage/#commit-your-project-to-version-control
 #poetry.lock
 
 # pdm
@@ -105,7 +107,7 @@ ipython_config.py
 # PEP 582
 __pypackages__/
 
-# Celery
+# Celery stuff
 celerybeat-schedule
 celerybeat.pid
 
@@ -121,17 +123,17 @@ ENV/
 env.bak/
 venv.bak/
 
-# Spyder
+# Spyder project settings
 .spyderproject
 .spyproject
 
-# Rope
+# Rope project settings
 .ropeproject
 
-# Scrapy
+# Scrapy stuff
 .scrapy
 
-# Sphinx
+# Sphinx documentation
 /site
 
 # PyBuilder
@@ -149,20 +151,23 @@ dmypy.json
 # pytype
 .pytype/
 
-# Cython
+# Cython debug symbols
 cython_debug/
 
 # PyCharm
-.idea/
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can be
+#  found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  If you want to ignore the entire idea folder, uncomment:
+#.idea/
 
-# PyPI
+# PyPI configuration file
 .pypirc
 
 # DS_Store
 .DS_Store
 
 # Ignore parquet files.
-data/*
+data/* 
 
 # Ignore verl script outputs.
 **/outputs/
@@ -179,6 +184,7 @@ rllm/*.json
 # Ignore the big datasets
 rllm/data/test/
 rllm/data/train/
+
 rllm/data/datasets/
 rllm/registry/
 
@@ -198,10 +204,10 @@ examples/deepresearch/hle_outputs/*
 */hle_outputs/*
 examples/deepresearch/HLE_OUTPUT_EVOLUTION.md
 
-# Until we have a good way to handle cuda-version specific pkgs, ignore uv.lock
+# Until we have a good way to handle cuda-version specific pkgs, we ignore uv.lock
 uv.lock
 
-# Legacy issue: ignore the "verl" folder, which was installed by many as a submodule before
+# Legacy issue: we will ignore the "verl" folder, which was installed by many as submodule before
 ./verl/
 
 .vscode/
