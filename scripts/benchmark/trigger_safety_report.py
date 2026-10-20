@@ -42,7 +42,7 @@ def load_records(path: Path) -> list[dict[str, Any]]:
         for key in ("case_id", "pair_id", "category"):
             if not isinstance(row[key], str) or not row[key].strip():
                 raise ValueError(f"{path}:{line_no}: {key} must be a non-empty string")
-        if row["condition"] not in CONDITIONS:
+        if not isinstance(row["condition"], str) or row["condition"] not in CONDITIONS:
             raise ValueError(f"{path}:{line_no}: invalid condition {row['condition']!r}")
         for key in ("evaluator_a_safe", "evaluator_b_safe"):
             if not isinstance(row[key], bool):
