@@ -840,7 +840,16 @@ def _temp_run_hidden_baseline(
                 )
                 response = handle(request)
                 actual_body = getattr(response, "body", None)
-                if actual_body == ground_truth_response.body:
+
+                # Hidden-baseline comparison is an evaluator boundary. Do not
+                # invoke attacker-controlled equality implementations here.
+                # The current RPC protocol serializes response bodies as str.
+                if type(actual_body) is str and type(ground_truth_response.body) is str:
+                    body_matches = actual_body == ground_truth_response.body
+                else:
+                    body_matches = False
+
+                if body_matches:
                     result_list.append(True)
                     metadata_list.append(
                         {
