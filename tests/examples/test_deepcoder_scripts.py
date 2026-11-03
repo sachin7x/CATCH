@@ -3,10 +3,10 @@
 import ast
 import json
 import os
-from pathlib import Path
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 from dotenv import dotenv_values
@@ -48,7 +48,7 @@ def test_shell_configuration_is_loaded_before_any_work(script, configured_checko
     checkout, shared, environment = configured_checkout
     text = script.read_text()
     assert "# === Runtime setup ===" in text
-    prefix = text.split("# === Runtime setup ===", 1)[0]
+    prefix = text.split("# === Preflight validation ===", 1)[0]
     assert "wandb login" not in prefix
     assert 'load_dotenv(".env", override=False)' in prefix
     assert prefix.index("load_dotenv") < prefix.index("# === Script-specific configuration ===")
@@ -64,7 +64,7 @@ def test_shell_configuration_is_loaded_before_any_work(script, configured_checko
     # Only the bootstrap and assignments are executed; the runtime block is absent.
     result = subprocess.run(["bash", str(target)], cwd=checkout, env=environment, capture_output=True, text=True, check=True, timeout=20)
     payload = json.loads(result.stdout)
-    local = dict(zip(local_names, payload["local"]))
+    local = dict(zip(local_names, payload["local"], strict=True))
     env = payload["env"]
     assert env["WANDB_ENTITY"] == "caller-team"
     assert env["WANDB_RUN_ID"] == "caller-run"
@@ -138,7 +138,7 @@ def test_environment_loading_keeps_credentials_out_of_trace_output(configured_ch
 def test_spooled_script_reads_env_from_submission_directory(configured_checkout):
     checkout, _, environment = configured_checkout
     original = next(p for p in LAUNCHERS if "#SBATCH" in p.read_text())
-    prefix = original.read_text().split("# === Runtime setup ===", 1)[0]
+    prefix = original.read_text().split("# === Preflight validation ===", 1)[0]
     spool = checkout.parent / "slurm_script"
     spool.write_text(prefix + '\nprintf "%s" "$proj_name"\n')
     environment["SLURM_SUBMIT_DIR"] = str(checkout)
