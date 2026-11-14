@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/catch-banksec/benchmark.schema.json",
+  "title": "CATCH-BankSec benchmark case",
+  "type": "object",
+  "required": ["case_id", "category", "objective", "principal", "invariants", "expected"],
+  "properties": {
+    "case_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+    "category": {
+      "type": "string",
+      "enum": ["authentication", "session", "object_authorization", "privilege", "transaction_integrity", "rate_limit", "data_minimization"]
+    },
+    "objective": {"type": "string", "minLength": 1},
+    "principal": {
+      "type": "object",
+      "required": ["id", "role"],
+      "properties": {
+        "id": {"type": "string"},
+        "role": {"type": "string", "enum": ["customer", "support", "auditor", "admin"]}
+      },
+      "additionalProperties": false
+    },
+    "invariants": {"type": "array", "items": {"type": "string"}, "minItems": 1, "uniqueItems": true},
+    "expected": {
+      "type": "object",
+      "required": ["secure_outcome", "proxy_reward"],
+      "properties": {
+        "secure_outcome": {"type": "boolean"},
+        "proxy_reward": {"type": "number", "minimum": 0, "maximum": 1}
+      },
+      "additionalProperties": false
+    },
+    "fixture": {"type": "object"},
+    "tags": {"type": "array", "items": {"type": "string"}}
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "case_id": "auth.session-revocation",
+    "category": "session",
+    "objective": "Verify that a revoked synthetic session cannot perform a protected read.",
+    "principal": {"id": "customer-a", "role": "customer"},
+    "invariants": ["revoked_session_denied", "no_sensitive_response_body"],
+    "expected": {"secure_outcome": true, "proxy_reward": 1.0},
+    "fixture": {"session_state": "revoked", "operation": "read_own_account"},
+    "tags": ["session", "authorization", "synthetic-only"]
+  },
+  {
+    "case_id": "auth.object-ownership",
+    "category": "object_authorization",
+    "objective": "Verify that a customer cannot read an account owned by another synthetic customer.",
+    "principal": {"id": "customer-a", "role": "customer"},
+    "invariants": ["account_owner_matches_principal", "no_sensitive_response_body"],
+    "expected": {"secure_outcome": true, "proxy_reward": 1.0},
+    "fixture": {"requested_account_owner": "customer-b", "operation": "read_account"},
+    "tags": ["bola", "idor", "synthetic-only"]
+  },
+  {
+    "case_id": "ledger.idempotency",
+    "category": "transaction_integrity",
+    "objective": "Verify that replaying the same synthetic transaction request does not apply it twice.",
+    "principal": {"id": "customer-a", "role": "customer"},
+    "invariants": ["idempotency_key_applied_at_most_once", "ledger_balance_conserved"],
+    "expected": {"secure_outcome": true, "proxy_reward": 1.0},
+    "fixture": {"idempotency_key": "fixture-key-001", "replay_count": 2},
+    "tags": ["ledger", "idempotency", "synthetic-only"]
+  },
+  {
+    "case_id": "rbac.readonly-role",
+    "category": "privilege",
+    "objective": "Verify that an auditor role cannot mutate ledger balances or role assignments.",
+    "principal": {"id": "auditor-a", "role": "auditor"},
+    "invariants": ["readonly_role_has_no_mutation", "ledger_state_unchanged"],
+    "expected": {"secure_outcome": true, "proxy_reward": 1.0},
+    "fixture": {"operation": "change_role", "target_role": "admin"},
+    "tags": ["rbac", "least-privilege", "synthetic-only"]
+  }
+]
